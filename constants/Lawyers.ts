@@ -1,0 +1,42 @@
+export const DUMMY_LAWYERS = [
+  {
+    id: "1",
+    name: "Eleanor Sterling",
+    practice: "Corporate & Startup Law",
+    experience: "12 Years Licensed",
+    location: "New York, NY",
+    bio: "I specialize in helping founders navigate early-stage growth, venture rounds, and IP protection. Let's make sure your startup is built on a solid foundation.",
+    badges: ["10+ Years Experience", "Free Consultation", "Bar Verified"],
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800",
+  },
+  {
+    id: "2",
+    name: "Marcus Reid",
+    practice: "Tech & Privacy Law",
+    experience: "8 Years Licensed",
+    location: "San Francisco, CA",
+    bio: "Former tech founder turned attorney. I understand the fast-paced nature of software development. Specializing in data privacy, terms of service, and compliance.",
+    badges: ["Tech Industry Focus", "Bar Verified", "Quick Response"],
+    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800",
+  },
+  {
+    id: "3",
+    name: "Sarah Jenkins",
+    practice: "Criminal Defense",
+    experience: "15 Years Licensed",
+    location: "Chicago, IL",
+    bio: "Former prosecutor with over a decade of trial experience. I know how the other side thinks, and I use that to get the best outcomes for my clients.",
+    badges: ["Former Prosecutor", "Trial Tested", "Bar Verified"],
+    image: "https://images.unsplash.com/photo-1580820267682-426da823d514?auto=format&fit=crop&q=80&w=800",
+  },
+  {
+    id: "4",
+    name: "David Chen",
+    practice: "Intellectual Property",
+    experience: "5 Years Licensed",
+    location: "Austin, TX",
+    bio: "Protecting your brand and ideas. Expertise in patents, trademarks, and copyright law for creators and innovators.",
+    badges: ["Top Rated", "Free Consultation"],
+    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=800",
+  }
+];
