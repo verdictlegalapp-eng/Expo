@@ -17,7 +17,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -93,8 +92,8 @@ const COUNTRY_CODES = [
 
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
-import { getFirebaseAuth, getFirebaseWebConfig } from '../../lib/firebase';
-import { sendPhoneVerificationCode, toE164Us } from '../../lib/phoneAuth';
+
+
 
 export default function Login() {
   const router = useRouter();
@@ -124,14 +123,13 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isSendingSms, setIsSendingSms] = useState(false);
-  const recaptchaRef = useRef<InstanceType<typeof FirebaseRecaptchaVerifierModal>>(null);
-  const firebaseConfig = getFirebaseWebConfig();
+
+
 
   // Simple slides array for metadata - will use direct rendering below
   const slides = [
     { key: 'name', label: 'FULL NAME', title: 'What is your full name?' },
     { key: 'email', label: 'EMAIL ADDRESS', title: 'How can we reach you?' },
-    { key: 'phone', label: 'PHONE NUMBER', title: 'What is your phone number?' },
     { key: 'location', label: 'LOCATION', title: 'Where are you based?' },
     ...(isAttorney ? [
       { key: 'specialization', label: 'PRACTICE AREA', title: 'What is your practice area?' },
@@ -154,7 +152,6 @@ export default function Login() {
     } else {
       if (!val.trim()) error = 'This field is required';
       else if (slide.key === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) error = 'Invalid email';
-      else if (slide.key === 'phone' && val.replace(/\D/g, '').length !== 10) error = '10 digits required';
       else if (slide.key === 'name' && val.length < 3) error = 'Min 3 chars';
     }
 
@@ -169,7 +166,6 @@ export default function Login() {
       pathname: '/auth/otp',
       params: {
         ...formData,
-        countryCode,
         role: resolvedRole,
       },
     });
@@ -187,22 +183,17 @@ export default function Login() {
 
     setIsSendingSms(true);
     try {
-      const auth = getFirebaseAuth();
-      const { toE164 } = require('../../lib/phoneAuth');
-      const phoneE164 = toE164(formData.phone, countryCode);
-      const verifier = recaptchaRef.current;
-      if (!verifier) {
-        throw new Error('Verification is not ready. Try again.');
-      }
-      await sendPhoneVerificationCode(auth, phoneE164, verifier);
+      const { requestEmailOtp } = require('../../lib/authApi');
+      await requestEmailOtp(formData.email);
       goToOtp();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Could not send verification SMS';
+      const message = e instanceof Error ? e.message : 'Could not send verification email';
       Alert.alert('Verification', message);
     } finally {
       setIsSendingSms(false);
     }
   };
+
 
   const onBack = () => {
     if (currentSlide > 0) {
@@ -317,27 +308,6 @@ export default function Login() {
           )}
 
           {currentSlide === 2 && (
-            <View style={[styles.inputBox, focusedField === 'phone' && styles.inputBoxActive, errors.phone && styles.inputBoxError]}>
-              <View style={styles.phoneWrapper}>
-                <TouchableOpacity style={styles.prefixBtn} onPress={() => openPicker('country')}>
-                  <Text style={styles.prefix}>{countryCode}</Text>
-                  <Ionicons name="chevron-down" size={14} color="#64748B" />
-                </TouchableOpacity>
-                <View style={styles.divider} />
-                <TextInput
-                  keyboardType="phone-pad"
-                  style={styles.input}
-                  placeholder="00000 00000"
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                  value={formData.phone}
-                  onChangeText={(v) => setFormData({...formData, phone: formatPhoneNumber(v)})}
-                />
-              </View>
-            </View>
-          )}
-
-          {currentSlide === 3 && (
             <View style={styles.locationRow}>
               <TouchableOpacity onPress={() => openPicker('state')} style={[styles.locationBox, { flex: 1 }, (errors.location || errors.state) && !formData.state && styles.inputBoxError]}>
                 <Text style={[styles.locationText, !formData.state && { color: '#94A3B8' }]}>{formData.state || "State"}</Text>
@@ -350,7 +320,7 @@ export default function Login() {
             </View>
           )}
 
-          {isAttorney && currentSlide === 4 && (
+          {isAttorney && currentSlide === 3 && (
             <View style={styles.specializationContainer}>
                <TouchableOpacity 
                  onPress={() => openPicker('specialization')} 
@@ -364,7 +334,7 @@ export default function Login() {
             </View>
           )}
 
-          {isAttorney && currentSlide === 5 && (
+          {isAttorney && currentSlide === 4 && (
             <View style={[styles.inputBox, focusedField === 'barId' && styles.inputBoxActive, errors.barId && styles.inputBoxError]}>
               <TextInput
                 autoCapitalize="characters"
@@ -377,6 +347,7 @@ export default function Login() {
               />
             </View>
           )}
+
 
           {Object.values(errors)[0] && <Text style={styles.errorLabel}>{Object.values(errors)[0]}</Text>}
         </View>
@@ -403,10 +374,7 @@ export default function Login() {
         </View>
       </KeyboardAvoidingView>
 
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaRef}
-        firebaseConfig={firebaseConfig}
-      />
+
 
       <Modal visible={pickerModal.visible} animationType="slide" transparent>
         <View style={styles.modalBg}>

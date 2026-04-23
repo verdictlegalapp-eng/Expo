@@ -16,16 +16,8 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { verifyEmailOtp, requestEmailOtp } from '../../lib/authApi';
 
-import { getFirebaseAuth, getFirebaseWebConfig } from '../../lib/firebase';
-import {
-  confirmPhoneCode,
-  getStoredVerificationId,
-  sendPhoneVerificationCode,
-  toE164Us,
-} from '../../lib/phoneAuth';
-import { verifyWithBackend } from '../../lib/authApi';
 
 function sp(v: string | string[] | undefined): string {
   if (Array.isArray(v)) return v[0] ?? '';
@@ -43,8 +35,7 @@ export default function OTP() {
   const inputs = useRef<Array<TextInput | null>>([]);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
-  const recaptchaRef = useRef<InstanceType<typeof FirebaseRecaptchaVerifierModal>>(null);
-  const firebaseConfig = getFirebaseWebConfig();
+
 
   const handleTextChange = (text: string, index: number) => {
     const newCode = [...code];
@@ -79,14 +70,12 @@ export default function OTP() {
     if (!isComplete) return;
     setBusy(true);
     try {
-      const verificationId = await getStoredVerificationId();
-      if (!verificationId) {
-        throw new Error('No pending code. Go back and request a new SMS.');
-      }
-      const auth = getFirebaseAuth();
+      const email = sp(params.email);
+      if (!email) throw new Error('Email is missing. Go back and re-enter.');
+      
       const codeStr = code.join('');
-      const { idToken } = await confirmPhoneCode(auth, verificationId, codeStr);
-      await verifyWithBackend(idToken, buildProfile());
+      await verifyEmailOtp(email, codeStr, buildProfile());
+      
       router.push({
         pathname: '/auth/profile-pic',
         params: { role: roleParam || 'client' },
@@ -99,18 +88,17 @@ export default function OTP() {
     }
   };
 
+
   const handleResend = async () => {
-    if (!phoneDisplay) {
-      Alert.alert('Missing phone', 'Go back to re-enter your number.');
+    const email = sp(params.email);
+    if (!email) {
+      Alert.alert('Missing email', 'Go back to re-enter your email.');
       return;
     }
     setResending(true);
     try {
-      const auth = getFirebaseAuth();
-      const verifier = recaptchaRef.current;
-      if (!verifier) throw new Error('Verification UI not ready.');
-      await sendPhoneVerificationCode(auth, toE164Us(phoneDisplay), verifier);
-      Alert.alert('Code sent', 'Check your messages for a new code.');
+      await requestEmailOtp(email);
+      Alert.alert('Code sent', 'Check your email for a new code.');
       setCode(['', '', '', '', '', '']);
       inputs.current[0]?.focus();
     } catch (e: unknown) {
@@ -120,6 +108,7 @@ export default function OTP() {
       setResending(false);
     }
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -149,11 +138,12 @@ export default function OTP() {
             </View>
 
             <View style={styles.content}>
-              <Text style={styles.title}>Verify phone</Text>
+              <Text style={styles.title}>Verify email</Text>
               <Text style={styles.subtitle}>
                 We sent a 6-digit code to{' '}
-                <Text style={styles.boldPhone}>{countryCode} {phoneDisplay || 'your number'}</Text> via text message.
+                <Text style={styles.boldPhone}>{sp(params.email) || 'your email'}</Text>.
               </Text>
+
 
               <View style={styles.otpContainer}>
                 {code.map((digit, index) => (
@@ -202,12 +192,8 @@ export default function OTP() {
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaRef}
-        firebaseConfig={firebaseConfig}
-        attemptInvisibleVerification
-      />
     </SafeAreaView>
+
   );
 }
 

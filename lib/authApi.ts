@@ -34,26 +34,76 @@ function getBaseUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
     console.warn('[authApi] EXPO_PUBLIC_API_URL is not set');
+  } else {
+    console.log(`[authApi] Using base URL: ${url}`);
   }
   return url?.replace(/\/$/, '') ?? '';
 }
 
-export async function verifyWithBackend(idToken: string, profile: RegisterProfile): Promise<VerifyResponse> {
-  const base = getBaseUrl();
-  if (!base) {
-    throw new Error('EXPO_PUBLIC_API_URL is not configured');
+function getAuthCandidates(base: string, endpoint: 'request-otp' | 'verify-otp' | 'verify'): string[] {
+  return [
+    `${base}/api/auth/${endpoint}`,
+    `${base}/auth/${endpoint}`,
+  ];
+}
+
+async function postJsonWith404Fallback<TBody extends object, TResponse>(
+  urls: string[],
+  body: TBody,
+): Promise<{ res: Response; parsed: TResponse & { error?: string; message?: string } }> {
+  let lastRes: Response | null = null;
+  let lastParsed = {} as TResponse & { error?: string; message?: string };
+
+  for (const url of urls) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const parsed = (await res.json().catch(() => ({}))) as TResponse & {
+      error?: string;
+      message?: string;
+    };
+
+    lastRes = res;
+    lastParsed = parsed;
+
+    // Retry only on 404 to support deployments mounted at /auth instead of /api/auth.
+    if (!(res.status === 404 && !res.ok)) {
+      return { res, parsed };
+    }
   }
 
-  const res = await fetch(`${base}/api/auth/verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken, profile }),
-  });
+  if (!lastRes) {
+    throw new Error('Network request failed');
+  }
+  return { res: lastRes, parsed: lastParsed };
+}
 
-  const body = (await res.json().catch(() => ({}))) as VerifyResponse & { error?: string };
+export async function requestEmailOtp(email: string): Promise<void> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('EXPO_PUBLIC_API_URL is not configured');
+
+  const { res, parsed: body } = await postJsonWith404Fallback<{ email: string }, { error?: string; message?: string }>(
+    getAuthCandidates(base, 'request-otp'),
+    { email },
+  );
+  if (!res.ok) {
+    throw new Error(body.error || body.message || `Failed to send OTP (${res.status})`);
+  }
+}
+
+export async function verifyEmailOtp(email: string, code: string, profile: RegisterProfile): Promise<VerifyResponse> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('EXPO_PUBLIC_API_URL is not configured');
+
+  const { res, parsed: body } = await postJsonWith404Fallback<
+    { email: string; code: string; profile: RegisterProfile },
+    VerifyResponse
+  >(getAuthCandidates(base, 'verify-otp'), { email, code, profile });
 
   if (!res.ok) {
-    throw new Error(body.error || `Verification failed (${res.status})`);
+    throw new Error(body.error || body.message || `Verification failed (${res.status})`);
   }
 
   if (!body.sessionToken) {
@@ -63,6 +113,30 @@ export async function verifyWithBackend(idToken: string, profile: RegisterProfil
   await AsyncStorage.setItem(SESSION_KEY, body.sessionToken);
   return body;
 }
+
+export async function verifyWithBackend(idToken: string, profile: RegisterProfile): Promise<VerifyResponse> {
+  const base = getBaseUrl();
+  if (!base) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured');
+  }
+
+  const { res, parsed: body } = await postJsonWith404Fallback<
+    { idToken: string; profile: RegisterProfile },
+    VerifyResponse
+  >(getAuthCandidates(base, 'verify'), { idToken, profile });
+
+  if (!res.ok) {
+    throw new Error(body.error || body.message || `Verification failed (${res.status})`);
+  }
+
+  if (!body.sessionToken) {
+    throw new Error('Invalid response from server');
+  }
+
+  await AsyncStorage.setItem(SESSION_KEY, body.sessionToken);
+  return body;
+}
+
 
 export async function getSessionToken(): Promise<string | null> {
   return AsyncStorage.getItem(SESSION_KEY);

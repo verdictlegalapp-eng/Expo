@@ -29,6 +29,10 @@ import { useState, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import FloatingGlassNav from '../components/FloatingGlassNav';
 import { UserProvider } from '../context/UserContext';
+import { getFirebaseApp } from '../lib/firebase';
+
+// Initialize Firebase Eagerly
+getFirebaseApp();
 
 export default function RootLayout() {
   const pathname = usePathname();
