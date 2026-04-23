@@ -79,6 +79,18 @@ const USA_DATA: Record<string, string[]> = {
   "Wyoming": ["Cheyenne", "Casper", "Laramie", "Gillette", "Rock Springs"]
 };
 
+const COUNTRY_CODES = [
+  { code: '+91', name: 'India', flag: '🇮🇳' },
+  { code: '+1', name: 'USA', flag: '🇺🇸' },
+  { code: '+44', name: 'UK', flag: '🇬🇧' },
+  { code: '+971', name: 'UAE', flag: '🇦🇪' },
+  { code: '+61', name: 'Australia', flag: '🇦🇺' },
+  { code: '+1', name: 'Canada', flag: '🇨🇦' },
+  { code: '+65', name: 'Singapore', flag: '🇸🇬' },
+  { code: '+49', name: 'Germany', flag: '🇩🇪' },
+  { code: '+33', name: 'France', flag: '🇫🇷' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
 import { getFirebaseAuth, getFirebaseWebConfig } from '../../lib/firebase';
@@ -108,6 +120,7 @@ export default function Login() {
     barId: ''
   });
 
+  const [countryCode, setCountryCode] = useState('+91');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isSendingSms, setIsSendingSms] = useState(false);
@@ -127,14 +140,7 @@ export default function Login() {
   ];
 
   const formatPhoneNumber = (text: string) => {
-    const cleaned = ('' + text).replace(/\D/g, '');
-    let formatted = cleaned;
-    if (cleaned.length > 0) {
-      if (cleaned.length <= 3) formatted = `(${cleaned}`;
-      else if (cleaned.length <= 6) formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-      else formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-    }
-    return formatted;
+    return text.replace(/\D/g, '');
   };
 
   const validate = () => {
@@ -163,6 +169,7 @@ export default function Login() {
       pathname: '/auth/otp',
       params: {
         ...formData,
+        countryCode,
         role: resolvedRole,
       },
     });
@@ -181,7 +188,8 @@ export default function Login() {
     setIsSendingSms(true);
     try {
       const auth = getFirebaseAuth();
-      const phoneE164 = toE164Us(formData.phone);
+      const { toE164 } = require('../../lib/phoneAuth');
+      const phoneE164 = toE164(formData.phone, countryCode);
       const verifier = recaptchaRef.current;
       if (!verifier) {
         throw new Error('Verification is not ready. Try again.');
@@ -208,14 +216,14 @@ export default function Login() {
   // Picker states
   const [pickerModal, setPickerModal] = useState<{ 
     visible: boolean; 
-    type: 'state' | 'city' | 'specialization'; 
+    type: 'state' | 'city' | 'specialization' | 'country'; 
     data: any[] 
   }>({
     visible: false, type: 'state', data: []
   });
   const [searchQuery, setSearchQuery] = useState('');
 
-  const openPicker = (type: 'state' | 'city' | 'specialization') => {
+  const openPicker = (type: 'state' | 'city' | 'specialization' | 'country') => {
     let data: any[] = [];
     if (type === 'state') {
       data = Object.keys(USA_DATA).sort();
@@ -223,12 +231,20 @@ export default function Login() {
       data = formData.state ? USA_DATA[formData.state].sort() : [];
     } else if (type === 'specialization') {
       data = PRACTICE_AREAS;
+    } else if (type === 'country') {
+      data = COUNTRY_CODES;
     }
     setPickerModal({ visible: true, type, data });
     setSearchQuery('');
   };
 
   const selectFromPicker = (item: any) => {
+    if (pickerModal.type === 'country') {
+      setCountryCode(item.code);
+      setPickerModal({ ...pickerModal, visible: false });
+      return;
+    }
+
     const itemName = typeof item === 'string' ? item : item.name;
     
     if (pickerModal.type === 'state') {
@@ -303,11 +319,15 @@ export default function Login() {
           {currentSlide === 2 && (
             <View style={[styles.inputBox, focusedField === 'phone' && styles.inputBoxActive, errors.phone && styles.inputBoxError]}>
               <View style={styles.phoneWrapper}>
-                <Text style={styles.prefix}>+1</Text>
+                <TouchableOpacity style={styles.prefixBtn} onPress={() => openPicker('country')}>
+                  <Text style={styles.prefix}>{countryCode}</Text>
+                  <Ionicons name="chevron-down" size={14} color="#64748B" />
+                </TouchableOpacity>
+                <View style={styles.divider} />
                 <TextInput
                   keyboardType="phone-pad"
                   style={styles.input}
-                  placeholder="(555) 000-0000"
+                  placeholder="00000 00000"
                   onFocus={() => setFocusedField('phone')}
                   onBlur={() => setFocusedField(null)}
                   value={formData.phone}
@@ -386,7 +406,6 @@ export default function Login() {
       <FirebaseRecaptchaVerifierModal
         ref={recaptchaRef}
         firebaseConfig={firebaseConfig}
-        attemptInvisibleVerification
       />
 
       <Modal visible={pickerModal.visible} animationType="slide" transparent>
@@ -408,21 +427,29 @@ export default function Login() {
              <FlatList
                 data={pickerModal.data.filter(it => {
                   const name = typeof it === 'string' ? it : it.name;
-                  return name.toLowerCase().includes(searchQuery.toLowerCase());
+                  const code = typeof it === 'string' ? '' : it.code;
+                  const query = searchQuery.toLowerCase();
+                  return name.toLowerCase().includes(query) || code.toLowerCase().includes(query);
                 })}
-                keyExtractor={it => typeof it === 'string' ? it : it.id}
+                keyExtractor={it => typeof it === 'string' ? it : (it.id || it.name + it.code)}
                 renderItem={({item}) => {
                   const name = typeof item === 'string' ? item : item.name;
                   const icon = typeof item === 'string' ? null : item.icon;
+                  const flag = typeof item === 'string' ? null : item.flag;
+                  const code = typeof item === 'string' ? null : item.code;
+
                   return (
                     <TouchableOpacity style={styles.modalRow} onPress={() => selectFromPicker(item)}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        {flag && <Text style={{ fontSize: 22 }}>{flag}</Text>}
                         {icon && <MaterialCommunityIcons name={icon as any} size={22} color="#3B82F6" />}
                         <Text style={styles.modalRowText}>{name}</Text>
+                        {code && <Text style={[styles.modalRowText, { color: '#64748B', fontSize: 14 }]}>({code})</Text>}
                       </View>
                       {((pickerModal.type === 'state' && formData.state === name) || 
                         (pickerModal.type === 'city' && formData.city === name) ||
-                        (pickerModal.type === 'specialization' && formData.specialization === name)
+                        (pickerModal.type === 'specialization' && formData.specialization === name) ||
+                        (pickerModal.type === 'country' && countryCode === code)
                        ) && <Ionicons name="checkmark-circle" size={20} color="#3B82F6"/>}
                     </TouchableOpacity>
                   );
@@ -447,9 +474,11 @@ const styles = StyleSheet.create({
   inputBox: { height: 68, backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 2, borderColor: '#E2E8F0', justifyContent: 'center', overflow: 'hidden' },
   inputBoxActive: { borderColor: Colors.electricBlue, backgroundColor: '#FFFFFF', shadowColor: Colors.electricBlue, shadowOpacity: 0.1, shadowRadius: 10, elevation: 3 },
   inputBoxError: { borderColor: '#EF4444', backgroundColor: '#FFF5F5' },
-  input: { flex: 1, paddingHorizontal: 20, fontSize: 18, fontFamily: 'Outfit_400Regular', color: '#0F172A' },
+  input: { flex: 1, paddingHorizontal: 16, fontSize: 18, fontFamily: 'Outfit_400Regular', color: '#0F172A' },
   phoneWrapper: { flexDirection: 'row', alignItems: 'center', height: '100%' },
-  prefix: { paddingLeft: 20, fontSize: 18, fontFamily: 'Outfit_600SemiBold', color: '#64748B' },
+  prefixBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 20 },
+  prefix: { fontSize: 18, fontFamily: 'Outfit_600SemiBold', color: '#0F172A' },
+  divider: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginLeft: 12 },
   locationRow: { flexDirection: 'row' },
   locationBox: { height: 68, backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 2, borderColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   locationText: { fontSize: 18, fontFamily: 'Outfit_400Regular', color: '#0F172A' },

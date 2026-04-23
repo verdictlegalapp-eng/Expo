@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, type Auth } from 'firebase/auth';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { defaultFirebaseWebConfig } from '../constants/firebaseConfig';
 
@@ -41,8 +42,21 @@ export function getFirebaseApp(): FirebaseApp {
   return appInstance;
 }
 
+let authInstance: Auth | null = null;
+
 export function getFirebaseAuth(): Auth {
-  return getAuth(getFirebaseApp());
+  if (!authInstance) {
+    const app = getFirebaseApp();
+    if (Platform.OS === 'web') {
+      const { getAuth } = require('firebase/auth');
+      authInstance = getAuth(app);
+    } else {
+      authInstance = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage)
+      });
+    }
+  }
+  return authInstance;
 }
 
 /** Plain object for `FirebaseRecaptchaVerifierModal` / Expo. */

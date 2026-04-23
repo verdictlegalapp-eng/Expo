@@ -36,6 +36,7 @@ export default function OTP() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const phoneDisplay = sp(params.phone);
+  const countryCode = sp(params.countryCode) || '+91';
   const roleParam = sp(params.role);
 
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -151,7 +152,7 @@ export default function OTP() {
               <Text style={styles.title}>Verify phone</Text>
               <Text style={styles.subtitle}>
                 We sent a 6-digit code to{' '}
-                <Text style={styles.boldPhone}>+1 {phoneDisplay || 'your number'}</Text> via text message.
+                <Text style={styles.boldPhone}>{countryCode} {phoneDisplay || 'your number'}</Text> via text message.
               </Text>
 
               <View style={styles.otpContainer}>

@@ -8,11 +8,10 @@ import {
 
 export const STORAGE_VERIFICATION_ID = 'verdict_phone_verification_id';
 
-export function toE164Us(digitsOrFormatted: string): string {
-  const d = digitsOrFormatted.replace(/\D/g, '');
-  if (d.length === 10) return `+1${d}`;
-  if (d.length === 11 && d.startsWith('1')) return `+${d}`;
-  return digitsOrFormatted.startsWith('+') ? digitsOrFormatted : `+${d}`;
+export function toE164(digits: string, prefix: string = '+91'): string {
+  const d = digits.replace(/\D/g, '');
+  const p = prefix.replace(/\D/g, '');
+  return `+${p}${d}`;
 }
 
 /** Sends SMS via Firebase Phone Auth (Recaptcha verifier required from expo-firebase-recaptcha). */
