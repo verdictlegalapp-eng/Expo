@@ -37,6 +37,7 @@ if (Platform.OS === 'web') {
 } else {
   try {
     auth = initializeAuth(app, {
+      // @ts-ignore - known issue with Firebase 11/12 types in RN
       persistence: getReactNativePersistence(AsyncStorage)
     });
     console.log('✅ Firebase Auth Initialized with persistence');

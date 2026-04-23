@@ -14,5 +14,5 @@ export const Colors = {
   success: '#10B981',
 
   // Gradient Definition
-  brandGradient: ['#1D2433', '#518CA6', '#2395DB'],
+  brandGradient: ['#1D2433', '#518CA6', '#2395DB'] as const,
 };
