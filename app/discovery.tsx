@@ -28,7 +28,20 @@ export default function Discovery() {
   const loadLawyers = async () => {
     try {
       setLoading(true);
-      const data = await fetchLawyers();
+      
+      // Get current user location
+      let userCity = '';
+      let userState = '';
+      try {
+        const { fetchCurrentUser } = require('../lib/authApi');
+        const user = await fetchCurrentUser();
+        userCity = user.city || '';
+        userState = user.state || '';
+      } catch (e) {
+        console.warn('Could not fetch user location for sorting');
+      }
+
+      const data = await fetchLawyers({ userCity, userState });
       setLawyers(data);
     } catch (e) {
       console.error('Failed to load lawyers:', e);

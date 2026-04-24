@@ -1,109 +1,243 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/Colors';
-import { fetchCurrentUser } from '../lib/authApi';
+import { fetchCurrentUser, updateProfile } from '../lib/authApi';
 
 export default function AttorneyProfile() {
   const router = useRouter();
   const [userData, setUserData] = React.useState<any>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [profile, setProfile] = React.useState({
+    name: '',
+    practice: '',
+    bio: '',
+    location: ''
+  });
 
   React.useEffect(() => {
-    fetchCurrentUser().then(setUserData).catch(console.error);
+    fetchCurrentUser().then(user => {
+      setUserData(user);
+      setProfile({
+        name: user.name || '',
+        practice: user.lawyerProfile?.practice || '',
+        bio: user.lawyerProfile?.bio || '',
+        location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
+      });
+    }).catch(console.error);
   }, []);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setUserData({ ...userData, image: base64Image });
+      // We don't save yet, just update local state until handleSave is called
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsEditing(false);
+      
+      // Basic parsing of location into city/state
+      let city = userData.city;
+      let state = userData.state;
+      if (profile.location.includes(',')) {
+        const parts = profile.location.split(',');
+        city = parts[0].trim();
+        state = parts[1].trim();
+      }
+
+      await updateProfile({
+        name: profile.name,
+        city,
+        state,
+        image: userData.image,
+        bio: profile.bio,
+        practice: profile.practice,
+      });
+      
+      const updated = await fetchCurrentUser();
+      setUserData(updated);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save profile');
+    }
+  };
+
+  const renderEditForm = () => (
+    <ScrollView style={styles.content}>
+      <View style={styles.profileHeader}>
+        <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
+          <Image 
+            source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
+            style={styles.avatar} 
+          />
+          <View style={styles.editAvatarBadge}>
+            <Ionicons name="camera" size={16} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+        <Text style={styles.name}>{profile.name || 'Your Name'}</Text>
+        <Text style={styles.practice}>{profile.practice || 'Attorney at Law'}</Text>
+      </View>
+
+      <View style={styles.formContainer}>
+        <Text style={styles.label}>Full Name</Text>
+        <TextInput 
+          style={styles.input}
+          value={profile.name}
+          onChangeText={t => setProfile({...profile, name: t})}
+          placeholder="Enter your full name"
+        />
+        
+        <Text style={styles.label}>Practice Area</Text>
+        <TextInput 
+          style={styles.input}
+          value={profile.practice}
+          onChangeText={t => setProfile({...profile, practice: t})}
+          placeholder="e.g. Personal Injury"
+        />
+
+        <Text style={styles.label}>Location</Text>
+        <TextInput 
+          style={styles.input}
+          value={profile.location}
+          onChangeText={t => setProfile({...profile, location: t})}
+          placeholder="City, State"
+        />
+
+        <Text style={styles.label}>Bio</Text>
+        <TextInput 
+          style={[styles.input, styles.textArea]}
+          value={profile.bio}
+          onChangeText={t => setProfile({...profile, bio: t})}
+          multiline
+          placeholder="Tell clients about your experience..."
+        />
+        
+        <TouchableOpacity 
+          style={[styles.logoutButton, { marginTop: 24, backgroundColor: Colors.electricBlue }]} 
+          onPress={handleSave}
+        >
+          <Text style={styles.logoutText}>Save Changes</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.logoutButton, { marginTop: 12, backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border }]} 
+          onPress={() => setIsEditing(false)}
+        >
+          <Text style={[styles.logoutText, { color: Colors.subtext }]}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={24} color={Colors.navy} />
+        <TouchableOpacity 
+          onPress={() => isEditing ? handleSave() : setIsEditing(true)} 
+          style={styles.settingsButton}
+        >
+          <Text style={styles.editButtonText}>{isEditing ? "Save" : "Edit"}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.profileHeader}>
-          <Image 
-            source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
-            style={styles.avatar} 
-          />
-          <Text style={styles.name}>{userData?.name || 'Loading...'}</Text>
-          <Text style={styles.practice}>{userData?.lawyerProfile?.practice || 'Attorney at Law'}</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Accepting Clients</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>14</Text>
-            <Text style={styles.statLabel}>Active Leads</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>4.9</Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>28</Text>
-            <Text style={styles.statLabel}>Consultations</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dashboard</Text>
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/boost')}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: '#F0F9FF' }]}>
-                <Ionicons name="rocket" size={20} color={Colors.electricBlue} />
-              </View>
-              <Text style={styles.menuItemText}>Boost Profile & Analytics</Text>
+      {isEditing ? renderEditForm() : (
+        <ScrollView style={styles.content}>
+          <View style={styles.profileHeader}>
+            <Image 
+              source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
+              style={styles.avatar} 
+            />
+            <Text style={styles.name}>{userData?.name || 'Loading...'}</Text>
+            <Text style={styles.practice}>{userData?.lawyerProfile?.practice || 'Attorney at Law'}</Text>
+            <View style={styles.statusBadge}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>Accepting Clients</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>14</Text>
+              <Text style={styles.statLabel}>Active Leads</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>4.9</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>28</Text>
+              <Text style={styles.statLabel}>Consultations</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Dashboard</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/boost')}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0F9FF' }]}>
+                  <Ionicons name="rocket" size={20} color={Colors.electricBlue} />
+                </View>
+                <Text style={styles.menuItemText}>Boost Profile & Analytics</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/messages')}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F8FAFC' }]}>
+                  <Ionicons name="chatbubbles" size={20} color={Colors.navy} />
+                </View>
+                <Text style={styles.menuItemText}>Messages & Intake</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>3</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
+                  <FontAwesome5 name="chart-line" size={16} color={Colors.success} />
+                </View>
+                <Text style={styles.menuItemText}>Consultation History</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => setIsEditing(true)}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFF5F5' }]}>
+                  <Ionicons name="document-text" size={20} color={Colors.error} />
+                </View>
+                <Text style={styles.menuItemText}>Edit Public Profile</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/')}>
+            <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/messages')}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: '#F8FAFC' }]}>
-                <Ionicons name="chatbubbles" size={20} color={Colors.navy} />
-              </View>
-              <Text style={styles.menuItemText}>Messages & Intake</Text>
-            </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>3</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.border} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
-                <FontAwesome5 name="chart-line" size={16} color={Colors.success} />
-              </View>
-              <Text style={styles.menuItemText}>Consultation History</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.border} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: '#FFF5F5' }]}>
-                <Ionicons name="document-text" size={20} color={Colors.error} />
-              </View>
-              <Text style={styles.menuItemText}>Edit Public Profile</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.border} />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/')}>
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -136,6 +270,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 32,
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
     width: 100,
     height: 100,
@@ -143,6 +280,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 3,
     borderColor: Colors.navy,
+  },
+  editAvatarBadge: {
+    position: 'absolute',
+    bottom: 16,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.navy,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   name: {
     fontFamily: 'Outfit_700Bold',
@@ -274,5 +424,34 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  editButtonText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 16,
+    color: Colors.electricBlue,
+  },
+  formContainer: {
+    padding: 24,
+  },
+  label: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 14,
+    color: Colors.subtext,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  input: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.electricBlue,
+  },
+  textArea: {
+    height: 120,
+    paddingTop: 16,
   },
 });

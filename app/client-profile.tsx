@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/Colors';
-import { fetchCurrentUser } from '../lib/authApi';
+import { fetchCurrentUser, updateProfile } from '../lib/authApi';
 
 export default function ClientProfile() {
   const router = useRouter();
@@ -28,6 +29,21 @@ export default function ClientProfile() {
     }).catch(console.error);
   }, []);
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setUserData({ ...userData, image: base64Image });
+    }
+  };
+
   const handleSave = async () => {
     try {
       setIsEditing(false);
@@ -44,7 +60,8 @@ export default function ClientProfile() {
         name: profile.name,
         city,
         state,
-        legalNeed: profile.legalNeed
+        legalNeed: profile.legalNeed,
+        image: userData.image,
       });
       
       // Refresh user data
@@ -74,7 +91,11 @@ export default function ClientProfile() {
 
         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              onPress={isEditing ? pickImage : undefined} 
+              disabled={!isEditing}
+              style={styles.avatarContainer}
+            >
               <Image 
                 source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&q=80&w=200' }} 
                 style={styles.avatar} 
@@ -84,7 +105,8 @@ export default function ClientProfile() {
                   <Ionicons name="camera" size={16} color="#FFFFFF" />
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
+            {!isEditing && <Text style={styles.profileNameText}>{profile.name}</Text>}
           </View>
 
           <View style={styles.formContainer}>
@@ -212,6 +234,12 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  profileNameText: {
+    marginTop: 16,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 22,
+    color: Colors.text,
   },
   formContainer: {
     padding: 24,

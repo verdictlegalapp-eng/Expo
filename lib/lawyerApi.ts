@@ -7,11 +7,18 @@ function getBaseUrl(): string {
   return url?.replace(/\/$/, '') ?? '';
 }
 
-export async function fetchLawyers(filters: { practiceArea?: string; location?: string } = {}): Promise<any[]> {
+export async function fetchLawyers(filters: { 
+  practice?: string; 
+  location?: string;
+  userCity?: string;
+  userState?: string;
+} = {}): Promise<any[]> {
   const base = getBaseUrl();
   const query = new URLSearchParams();
-  if (filters.practiceArea) query.append('practiceArea', filters.practiceArea);
+  if (filters.practice) query.append('practice', filters.practice);
   if (filters.location) query.append('location', filters.location);
+  if (filters.userCity) query.append('userCity', filters.userCity);
+  if (filters.userState) query.append('userState', filters.userState);
 
   const res = await fetch(`${base}/api/lawyers?${query.toString()}`);
   const body = await res.json().catch(() => ({}));
