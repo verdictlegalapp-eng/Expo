@@ -1,15 +1,42 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { DUMMY_LAWYERS } from '../../constants/Lawyers';
+import { fetchLawyerById } from '../../lib/lawyerApi';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LawyerDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const lawyer = DUMMY_LAWYERS.find(l => l.id === id);
+  const [lawyer, setLawyer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  React.useEffect(() => {
+    if (id) {
+      loadLawyer();
+    }
+  }, [id]);
+
+  const loadLawyer = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchLawyerById(id as string);
+      setLawyer(data);
+    } catch (e) {
+      console.error('Failed to load lawyer:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.loadingText}>Loading attorney details...</Text>
+      </View>
+    );
+  }
 
   if (!lawyer) {
     return (
@@ -99,6 +126,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 16,
+    color: '#64748B',
   },
   outerContainer: {
     flex: 1,

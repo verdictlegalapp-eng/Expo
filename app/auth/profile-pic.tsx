@@ -13,6 +13,8 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { updateProfile } from '../../lib/authApi';
 
 const { width } = Dimensions.get('window');
 
@@ -30,14 +32,49 @@ export default function ProfilePic() {
   const { role } = useLocalSearchParams();
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
   const [isUploaded, setIsUploaded] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [base64Image, setBase64Image] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const isAttorney = role === 'attorney';
 
-  const handleFinish = () => {
-    if (isAttorney) {
-      router.replace('/attorney-profile');
-    } else {
-      router.replace('/discovery');
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setImageUri(result.assets[0].uri);
+      setBase64Image(result.assets[0].base64);
+      setIsUploaded(true);
+      setSelectedAvatar(null);
+    }
+  };
+
+  const handleFinish = async () => {
+    try {
+      setIsSaving(true);
+      if (base64Image) {
+        await updateProfile({ image: `data:image/jpeg;base64,${base64Image}` });
+      } else if (selectedAvatar) {
+        await updateProfile({ image: selectedAvatar });
+      }
+      
+      if (isAttorney) {
+        router.replace('/attorney-profile');
+      } else {
+        router.replace('/discovery');
+      }
+    } catch (e) {
+      console.error('Failed to save profile pic', e);
+      // Still let them proceed to the app even if picture upload fails
+      router.replace(isAttorney ? '/attorney-profile' : '/discovery');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -75,11 +112,11 @@ export default function ProfilePic() {
             <View style={styles.uploadSection}>
               <TouchableOpacity 
                 style={styles.mainUploadCircle} 
-                onPress={() => setIsUploaded(true)}
+                onPress={pickImage}
               >
-                {isUploaded ? (
+                {isUploaded && imageUri ? (
                   <Image 
-                    source={{ uri: 'https://images.unsplash.com/photo-1556157382-97dee2dcb746?w=400&h=400&fit=crop' }} 
+                    source={{ uri: imageUri }} 
                     style={styles.profileImage} 
                   />
                 ) : (
@@ -136,10 +173,7 @@ export default function ProfilePic() {
 
               <TouchableOpacity 
                 style={[styles.customUploadButton, isUploaded && styles.uploadedButton]} 
-                onPress={() => {
-                  setIsUploaded(true);
-                  setSelectedAvatar(null);
-                }}
+                onPress={pickImage}
               >
                 <Ionicons name="image-outline" size={24} color={isUploaded ? "#3B82F6" : "#64748B"} />
                 <Text style={[styles.uploadButtonText, isUploaded && styles.uploadedText]}>
@@ -153,11 +187,11 @@ export default function ProfilePic() {
 
       <View style={styles.footer}>
         <TouchableOpacity 
-          style={[styles.button, (!selectedAvatar && !isUploaded) && styles.buttonDisabled]} 
+          style={[styles.button, (!selectedAvatar && !isUploaded) && styles.buttonDisabled, isSaving && { opacity: 0.7 }]} 
           onPress={handleFinish}
-          disabled={!selectedAvatar && !isUploaded}
+          disabled={(!selectedAvatar && !isUploaded) || isSaving}
         >
-          <Text style={styles.buttonText}>Finish & Enter Verdict</Text>
+          <Text style={styles.buttonText}>{isSaving ? "Saving..." : "Finish & Enter Verdict"}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

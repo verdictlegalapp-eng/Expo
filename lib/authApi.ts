@@ -22,11 +22,11 @@ export type VerifyResponse = {
     phone: string;
     email: string;
     name: string;
+    image: string | null;
     role: string;
     state: string | null;
     city: string | null;
-    specialization: string | null;
-    barId: string | null;
+    legalNeed: string | null;
   };
 };
 
@@ -106,12 +106,14 @@ export async function verifyEmailOtp(email: string, code: string, profile: Regis
     throw new Error(body.error || body.message || `Verification failed (${res.status})`);
   }
 
-  if (!body.sessionToken) {
+  const data = (body as any).data || body;
+
+  if (!data.sessionToken) {
     throw new Error('Invalid response from server');
   }
 
-  await AsyncStorage.setItem(SESSION_KEY, body.sessionToken);
-  return body;
+  await AsyncStorage.setItem(SESSION_KEY, data.sessionToken);
+  return data as VerifyResponse;
 }
 
 export async function verifyWithBackend(idToken: string, profile: RegisterProfile): Promise<VerifyResponse> {
@@ -129,12 +131,14 @@ export async function verifyWithBackend(idToken: string, profile: RegisterProfil
     throw new Error(body.error || body.message || `Verification failed (${res.status})`);
   }
 
-  if (!body.sessionToken) {
+  const data = (body as any).data || body;
+
+  if (!data.sessionToken) {
     throw new Error('Invalid response from server');
   }
 
-  await AsyncStorage.setItem(SESSION_KEY, body.sessionToken);
-  return body;
+  await AsyncStorage.setItem(SESSION_KEY, data.sessionToken);
+  return data as VerifyResponse;
 }
 
 
@@ -149,15 +153,43 @@ export async function fetchCurrentUser(): Promise<VerifyResponse['user']> {
   if (!base || !token) {
     throw new Error('Not signed in or EXPO_PUBLIC_API_URL missing');
   }
-  const res = await fetch(`${base}/api/me`, {
+  const res = await fetch(`${base}/api/auth/profile`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const body = (await res.json().catch(() => ({}))) as { user?: VerifyResponse['user']; error?: string };
+  const body = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {
     throw new Error(body.error || `Request failed (${res.status})`);
   }
-  if (!body.user) {
+  const data = body.data || body;
+
+  if (!data.id) {
     throw new Error('Invalid response from server');
   }
-  return body.user;
+  return data;
+}
+
+export async function updateProfile(data: {
+  name?: string;
+  city?: string;
+  state?: string;
+  legalNeed?: string;
+  image?: string;
+}): Promise<void> {
+  const base = getBaseUrl();
+  const token = await getSessionToken();
+  if (!base || !token) {
+    throw new Error('Not signed in or EXPO_PUBLIC_API_URL missing');
+  }
+  const res = await fetch(`${base}/api/auth/profile`, {
+    method: 'PUT',
+    headers: { 
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}` 
+    },
+    body: JSON.stringify(data)
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    throw new Error(body.error || `Failed to update profile (${res.status})`);
+  }
 }

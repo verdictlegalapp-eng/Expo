@@ -26,16 +26,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { View, Image, StyleSheet, Animated } from 'react-native';
 import { useState, useRef } from 'react';
-import { usePathname } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import FloatingGlassNav from '../components/FloatingGlassNav';
 import { UserProvider } from '../context/UserContext';
 import { getFirebaseApp } from '../lib/firebase';
+import { fetchCurrentUser } from '../lib/authApi';
 
 // Initialize Firebase Eagerly
 getFirebaseApp();
 
 export default function RootLayout() {
   const pathname = usePathname();
+  const router = useRouter();
   const [loaded, error] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
@@ -57,11 +59,29 @@ export default function RootLayout() {
   ].includes(pathname);
 
   useEffect(() => {
+    const checkLogin = async () => {
+      try {
+        const user = await fetchCurrentUser();
+        if (user) {
+          if (user.role === 'lawyer') {
+            router.replace('/attorney-profile');
+          } else {
+            router.replace('/discovery');
+          }
+        }
+      } catch (e) {
+        // Not logged in, do nothing (stay on landing page)
+      }
+    };
+
     if (loaded || error) {
       // Hide native splash immediately once bundle is loaded
       SplashScreen.hideAsync();
       
-      // Wait for 1.5s as requested
+      // Attempt auto-login in the background
+      checkLogin();
+      
+      // Wait for 1.5s as requested for the brand splash
       const timer = setTimeout(() => {
         // Fade out animation
         Animated.timing(fadeAnim, {

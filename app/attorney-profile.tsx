@@ -3,9 +3,15 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollVi
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/Colors';
+import { fetchCurrentUser } from '../lib/authApi';
 
 export default function AttorneyProfile() {
   const router = useRouter();
+  const [userData, setUserData] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    fetchCurrentUser().then(setUserData).catch(console.error);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -19,11 +25,11 @@ export default function AttorneyProfile() {
       <ScrollView style={styles.content}>
         <View style={styles.profileHeader}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
+            source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
             style={styles.avatar} 
           />
-          <Text style={styles.name}>Marcus Reid</Text>
-          <Text style={styles.practice}>Tech & Privacy Law</Text>
+          <Text style={styles.name}>{userData?.name || 'Loading...'}</Text>
+          <Text style={styles.practice}>{userData?.lawyerProfile?.practice || 'Attorney at Law'}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Accepting Clients</Text>

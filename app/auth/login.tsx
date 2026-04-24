@@ -130,6 +130,7 @@ export default function Login() {
   const slides = [
     { key: 'name', label: 'FULL NAME', title: 'What is your full name?' },
     { key: 'email', label: 'EMAIL ADDRESS', title: 'How can we reach you?' },
+    { key: 'phone', label: 'MOBILE NUMBER', title: 'What is your mobile number?' },
     { key: 'location', label: 'LOCATION', title: 'Where are you based?' },
     ...(isAttorney ? [
       { key: 'specialization', label: 'PRACTICE AREA', title: 'What is your practice area?' },
@@ -152,6 +153,7 @@ export default function Login() {
     } else {
       if (!val.trim()) error = 'This field is required';
       else if (slide.key === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) error = 'Invalid email';
+      else if (slide.key === 'phone' && formatPhoneNumber(val).length < 10) error = 'Invalid phone number';
       else if (slide.key === 'name' && val.length < 3) error = 'Min 3 chars';
     }
 
@@ -308,6 +310,27 @@ export default function Login() {
           )}
 
           {currentSlide === 2 && (
+            <View style={[styles.inputBox, focusedField === 'phone' && styles.inputBoxActive, errors.phone && styles.inputBoxError]}>
+              <View style={styles.phoneWrapper}>
+                <TouchableOpacity onPress={() => openPicker('country')} style={styles.prefixBtn}>
+                  <Text style={styles.prefix}>{countryCode}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#0F172A" />
+                </TouchableOpacity>
+                <View style={styles.divider} />
+                <TextInput
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                  placeholder="202 555 0123"
+                  onFocus={() => setFocusedField('phone')}
+                  onBlur={() => setFocusedField(null)}
+                  value={formData.phone}
+                  onChangeText={(v) => setFormData({...formData, phone: v})}
+                />
+              </View>
+            </View>
+          )}
+
+          {currentSlide === 3 && (
             <View style={styles.locationRow}>
               <TouchableOpacity onPress={() => openPicker('state')} style={[styles.locationBox, { flex: 1 }, (errors.location || errors.state) && !formData.state && styles.inputBoxError]}>
                 <Text style={[styles.locationText, !formData.state && { color: '#94A3B8' }]}>{formData.state || "State"}</Text>
@@ -320,7 +343,7 @@ export default function Login() {
             </View>
           )}
 
-          {isAttorney && currentSlide === 3 && (
+          {isAttorney && currentSlide === 4 && (
             <View style={styles.specializationContainer}>
                <TouchableOpacity 
                  onPress={() => openPicker('specialization')} 
@@ -334,7 +357,7 @@ export default function Login() {
             </View>
           )}
 
-          {isAttorney && currentSlide === 4 && (
+          {isAttorney && currentSlide === 5 && (
             <View style={[styles.inputBox, focusedField === 'barId' && styles.inputBoxActive, errors.barId && styles.inputBoxError]}>
               <TextInput
                 autoCapitalize="characters"

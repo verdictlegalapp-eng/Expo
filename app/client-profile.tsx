@@ -4,19 +4,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/Colors';
+import { fetchCurrentUser } from '../lib/authApi';
 
 export default function ClientProfile() {
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
   const [profile, setProfile] = useState({
-    name: 'John Doe',
-    location: 'New York, NY',
-    legalNeed: 'Looking for assistance with a tech start-up incorporation and general privacy policies.'
+    name: 'Loading...',
+    location: '',
+    legalNeed: ''
   });
 
-  const handleSave = () => {
-    setIsEditing(false);
+  React.useEffect(() => {
+    fetchCurrentUser().then(user => {
+      setUserData(user);
+      setProfile({
+        name: user.name || 'New Client',
+        location: user.city && user.state ? `${user.city}, ${user.state}` : (user.city || user.state || ''),
+        legalNeed: user.legalNeed || 'No specific legal need described yet.'
+      });
+    }).catch(console.error);
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      setIsEditing(false);
+      // Basic parsing of location into city/state if comma exists
+      let city = profile.location;
+      let state = '';
+      if (profile.location.includes(',')) {
+        const parts = profile.location.split(',');
+        city = parts[0].trim();
+        state = parts[1].trim();
+      }
+
+      await updateProfile({
+        name: profile.name,
+        city,
+        state,
+        legalNeed: profile.legalNeed
+      });
+      
+      // Refresh user data
+      const updatedUser = await fetchCurrentUser();
+      setUserData(updatedUser);
+    } catch (e) {
+      console.error('Failed to save profile:', e);
+      alert('Failed to save profile changes. Please try again.');
+    }
   };
 
   return (
@@ -39,7 +76,7 @@ export default function ClientProfile() {
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&q=80&w=200' }} 
+                source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&q=80&w=200' }} 
                 style={styles.avatar} 
               />
               {isEditing && (
@@ -92,7 +129,15 @@ export default function ClientProfile() {
           </View>
 
           {!isEditing && (
-            <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/')}>
+            <TouchableOpacity 
+              style={styles.logoutButton} 
+              onPress={async () => {
+                await import('@react-native-async-storage/async-storage').then(async (AsyncStorage) => {
+                  await AsyncStorage.default.removeItem('verdict_session_token');
+                  router.replace('/');
+                });
+              }}
+            >
               <Ionicons name="log-out-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>

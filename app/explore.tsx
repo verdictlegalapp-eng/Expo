@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
-import { DUMMY_LAWYERS } from '../constants/Lawyers';
+import { fetchLawyers } from '../lib/lawyerApi';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { PRACTICE_AREAS } from '../constants/Legal';
@@ -24,8 +24,26 @@ export default function Explore() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [lawyers, setLawyers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredLawyers = DUMMY_LAWYERS.filter(lawyer => {
+  React.useEffect(() => {
+    loadLawyers();
+  }, []);
+
+  const loadLawyers = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchLawyers();
+      setLawyers(data);
+    } catch (e) {
+      console.error('Failed to load lawyers:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredLawyers = lawyers.filter(lawyer => {
     const matchesSearch = lawyer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           lawyer.practice.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !activeCategory || lawyer.practice.toLowerCase().includes(activeCategory.toLowerCase());
@@ -124,41 +142,47 @@ export default function Explore() {
             <Text style={styles.sectionTitle}>Top Recommendations</Text>
             <Text style={styles.resultsCount}>{filteredLawyers.length} found</Text>
           </View>
-          <FlatList
-            data={filteredLawyers}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.resultsList}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.lawyerCard}
-                onPress={() => router.push(`/lawyer/${item.id}`)}
-              >
-                <Image source={{ uri: item.image }} style={styles.lawyerImage} />
-                <View style={styles.lawyerInfo}>
-                  <Text style={styles.lawyerName}>{item.name}</Text>
-                  <Text style={styles.lawyerPractice}>{item.practice}</Text>
-                  <View style={styles.lawyerMeta}>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="location" size={14} color="#94A3B8" />
-                      <Text style={styles.metaText}>{item.location}</Text>
-                    </View>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="ribbon" size={14} color="#3B82F6" />
-                      <Text style={styles.metaTextHighlight}>{item.experience}</Text>
+          {loading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Loading attorneys...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredLawyers}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.resultsList}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.lawyerCard}
+                  onPress={() => router.push(`/lawyer/${item.id}`)}
+                >
+                  <Image source={{ uri: item.image }} style={styles.lawyerImage} />
+                  <View style={styles.lawyerInfo}>
+                    <Text style={styles.lawyerName}>{item.name}</Text>
+                    <Text style={styles.lawyerPractice}>{item.practice}</Text>
+                    <View style={styles.lawyerMeta}>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="location" size={14} color="#94A3B8" />
+                        <Text style={styles.metaText}>{item.location}</Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Ionicons name="ribbon" size={14} color="#3B82F6" />
+                        <Text style={styles.metaTextHighlight}>{item.experience}</Text>
+                      </View>
                     </View>
                   </View>
+                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Ionicons name="search-outline" size={48} color="#CBD5E1" />
+                  <Text style={styles.emptyStateText}>No attorneys match your search.</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="search-outline" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyStateText}>No attorneys match your search.</Text>
-              </View>
-            }
-          />
+              }
+            />
+          )}
         </View>
       </SafeAreaView>
     </View>

@@ -10,15 +10,32 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { DUMMY_LAWYERS } from '../constants/Lawyers';
+import { fetchLawyers } from '../lib/lawyerApi';
 import SwipeCard from '../components/SwipeCard';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
 export default function Discovery() {
-  const [lawyers, setLawyers] = useState(DUMMY_LAWYERS);
+  const [lawyers, setLawyers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  React.useEffect(() => {
+    loadLawyers();
+  }, []);
+
+  const loadLawyers = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchLawyers();
+      setLawyers(data);
+    } catch (e) {
+      console.error('Failed to load lawyers:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSwipeLeft = () => {
     setLawyers((prev) => prev.slice(1));
@@ -46,7 +63,11 @@ export default function Discovery() {
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.cardsContainer}>
-          {lawyers.length > 0 ? (
+          {loading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Loading attorneys...</Text>
+            </View>
+          ) : lawyers.length > 0 ? (
             lawyers.map((lawyer, index) => (
               <SwipeCard
                 key={lawyer.id}
@@ -57,7 +78,7 @@ export default function Discovery() {
             )).reverse()
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>Looking for more attorneys...</Text>
+              <Text style={styles.emptyStateText}>No attorneys found in your area.</Text>
             </View>
           )}
         </View>
