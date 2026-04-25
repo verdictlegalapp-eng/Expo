@@ -29,13 +29,17 @@ export async function fetchLawyers(filters: {
 
   const data = body.data || body;
   
+  if (__DEV__) {
+    console.log(`[fetchLawyers] Received ${data?.length} lawyers. First bio: ${data[0]?.bio}`);
+  }
+  
   return data.map((lawyer: any) => ({
     id: lawyer.id,
     name: lawyer.user?.name || 'Anonymous Attorney',
     practice: lawyer.practice,
     experience: lawyer.experience,
     location: lawyer.location || `${lawyer.city}, ${lawyer.state}`,
-    bio: lawyer.bio || '',
+    bio: lawyer.bio || lawyer.description || '', // Check for description as well just in case
     badges: lawyer.badges || [],
     image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
     rating: lawyer.rating || 0,

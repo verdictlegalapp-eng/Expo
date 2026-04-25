@@ -138,7 +138,7 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
 
           {/* Bio Snippet */}
           <Text style={styles.bioExcerpt} numberOfLines={2}>
-            {lawyer.bio}
+            {lawyer.bio || "Leading attorney dedicated to achieving the best possible results for clients with personalized legal strategies."}
           </Text>
 
           {/* Transparent Floating Action Buttons */}
