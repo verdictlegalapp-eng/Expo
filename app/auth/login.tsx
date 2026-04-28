@@ -16,6 +16,7 @@ import {
   Animated,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -267,32 +268,41 @@ export default function Login() {
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}>
-            <Ionicons name="arrow-back" size={28} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.stepIndicator}>STEP {currentSlide + 1} / {slides.length}</Text>
-        </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={onBack}>
+                  <Ionicons name="arrow-back" size={28} color="#0F172A" />
+                </TouchableOpacity>
+                <Text style={styles.stepIndicator}>STEP {currentSlide + 1} / {slides.length}</Text>
+              </View>
 
-        <View style={styles.content}>
-          <Text style={styles.title}>{slides[currentSlide].title}</Text>
-          <Text style={styles.label}>{slides[currentSlide].label}</Text>
+              <View style={styles.content}>
+                <Text style={styles.title}>{slides[currentSlide].title}</Text>
+                <Text style={styles.label}>{slides[currentSlide].label}</Text>
 
-          {/* HARD RESET: Direct rendering of question content */}
-          {currentSlide === 0 && (
-            <View style={[styles.inputBox, focusedField === 'name' && styles.inputBoxActive, errors.name && styles.inputBoxError]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Eleanor Sterling"
-                onFocus={() => setFocusedField('name')}
-                onBlur={() => setFocusedField(null)}
-                value={formData.name}
-                onChangeText={(v) => setFormData({...formData, name: v})}
-              />
-            </View>
-          )}
+                {/* HARD RESET: Direct rendering of question content */}
+                {currentSlide === 0 && (
+                  <View style={[styles.inputBox, focusedField === 'name' && styles.inputBoxActive, errors.name && styles.inputBoxError]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Eleanor Sterling"
+                      onFocus={() => setFocusedField('name')}
+                      onBlur={() => setFocusedField(null)}
+                      value={formData.name}
+                      onChangeText={(v) => setFormData({...formData, name: v})}
+                    />
+                  </View>
+                )}
+                {/* ... (remaining conditional renders) ... */}
 
           {currentSlide === 1 && (
             <View style={[styles.inputBox, focusedField === 'email' && styles.inputBoxActive, errors.email && styles.inputBoxError]}>
@@ -394,8 +404,11 @@ export default function Login() {
                 )}
               </View>
            </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            </View>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
 
 
 

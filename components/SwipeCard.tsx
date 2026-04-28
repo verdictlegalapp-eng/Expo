@@ -18,6 +18,7 @@ const SWIPE_THRESHOLD = width * 0.3;
 
 export interface Lawyer {
   id: string;
+  userId?: string;
   name: string;
   practice: string;
   experience: string;
@@ -79,86 +80,102 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
     return { opacity };
   });
 
+  const handleManualRight = () => {
+    translateX.value = withSpring(width * 1.5, { velocity: 10 }, () => {
+      runOnJS(onSwipeRight)();
+    });
+  };
+
+  const handleManualLeft = () => {
+    translateX.value = withSpring(-width * 1.5, { velocity: -10 }, () => {
+      runOnJS(onSwipeLeft)();
+    });
+  };
+
   const nopeOpacity = useAnimatedStyle(() => {
     const opacity = interpolate(translateX.value, [0, -width / 4], [0, 1], Extrapolation.CLAMP);
     return { opacity };
   });
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.card, animatedCardStyle]}>
-        
-        {/* Full Edge-to-Edge Image */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: lawyer.image }} style={styles.image} />
+    <Animated.View style={[styles.card, animatedCardStyle]}>
+      
+      {/* The Swipable Area */}
+      <GestureDetector gesture={panGesture}>
+        <View style={StyleSheet.absoluteFill}>
           
-          {/* Transparent Gradient Over Image */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)', 'rgba(15, 23, 42, 1)']}
-            style={styles.textOverlay}
-          />
-        </View>
-
-        {/* Action Stamps */}
-        <Animated.View style={[styles.overlayLike, likeOpacity]}>
-          <Text style={styles.overlayTextLike}>VERDICT</Text>
-        </Animated.View>
-        <Animated.View style={[styles.overlayNope, nopeOpacity]}>
-          <Text style={styles.overlayTextNope}>PASS</Text>
-        </Animated.View>
-
-        {/* Floating Content Section */}
-        <View style={styles.contentContainer}>
-          <View style={styles.mainInfo}>
-            <View style={styles.titleRow}>
-              <Text style={styles.name} numberOfLines={1}>{lawyer.name}</Text>
-              <TouchableOpacity onPress={() => router.push(`/lawyer/${lawyer.id}`)} hitSlop={15}>
-                <Ionicons name="information-circle" size={26} color="white" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.practice}>{lawyer.practice}</Text>
-          </View>
-
-          {/* Highlights Row */}
-          <View style={styles.highlightsRow}>
+          {/* Full Edge-to-Edge Image */}
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: lawyer.image }} style={styles.image} />
+            
+            {/* Transparent Gradient Over Image */}
             <LinearGradient
-              colors={['#3B82F6', '#273951']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.highlightBadge}
-            >
-              <Ionicons name="location" size={12} color="#FFFFFF" />
-              <Text style={styles.highlightText}>{lawyer.location}</Text>
-            </LinearGradient>
-            <View style={styles.expBadge}>
-              <Ionicons name="ribbon" size={12} color="#3B82F6" />
-              <Text style={styles.expText}>{lawyer.experience}</Text>
-            </View>
+              colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)', 'rgba(15, 23, 42, 1)']}
+              style={styles.textOverlay}
+            />
           </View>
 
-          {/* Bio Snippet */}
-          <Text style={styles.bioExcerpt} numberOfLines={2}>
-            {lawyer.bio || "Leading attorney dedicated to achieving the best possible results for clients with personalized legal strategies."}
-          </Text>
+          {/* Action Stamps */}
+          <Animated.View style={[styles.overlayLike, likeOpacity]}>
+            <Text style={styles.overlayTextLike}>VERDICT</Text>
+          </Animated.View>
+          <Animated.View style={[styles.overlayNope, nopeOpacity]}>
+            <Text style={styles.overlayTextNope}>PASS</Text>
+          </Animated.View>
 
-          {/* Transparent Floating Action Buttons */}
-          <View style={styles.floatingButtons}>
-            <TouchableOpacity style={styles.dislikeBtn} onPress={onSwipeLeft}>
-              <Ionicons name="close" size={30} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.likeBtn} onPress={onSwipeRight}>
+          {/* Floating Content Section */}
+          <View style={[styles.contentContainer, { bottom: 80 }]}>
+            <View style={styles.mainInfo}>
+              <View style={styles.titleRow}>
+                <Text style={styles.name} numberOfLines={1}>{lawyer.name}</Text>
+                <TouchableOpacity onPress={() => router.push(`/lawyer/${lawyer.id}`)} hitSlop={15}>
+                  <Ionicons name="information-circle" size={26} color="white" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.practice}>{lawyer.practice}</Text>
+            </View>
+
+            {/* Highlights Row */}
+            <View style={styles.highlightsRow}>
               <LinearGradient
                 colors={['#3B82F6', '#273951']}
-                style={styles.gradientBtn}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.highlightBadge}
               >
-                <FontAwesome5 name="gavel" size={24} color="white" />
+                <Ionicons name="location" size={12} color="#FFFFFF" />
+                <Text style={styles.highlightText}>{lawyer.location}</Text>
               </LinearGradient>
-            </TouchableOpacity>
+              <View style={styles.expBadge}>
+                <Ionicons name="ribbon" size={12} color="#3B82F6" />
+                <Text style={styles.expText}>{lawyer.experience}</Text>
+              </View>
+            </View>
+
+            {/* Bio Snippet */}
+            <Text style={styles.bioExcerpt} numberOfLines={2}>
+              {lawyer.bio || "Leading attorney dedicated to achieving the best possible results for clients with personalized legal strategies."}
+            </Text>
           </View>
         </View>
+      </GestureDetector>
 
-      </Animated.View>
-    </GestureDetector>
+      {/* Transparent Floating Action Buttons (Outside GestureDetector to fix clicks) */}
+      <View style={styles.floatingButtons} pointerEvents="box-none">
+        <TouchableOpacity style={styles.dislikeBtn} onPress={handleManualLeft}>
+          <Ionicons name="close" size={30} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.likeBtn} onPress={handleManualRight}>
+          <LinearGradient
+            colors={['#3B82F6', '#273951']}
+            style={styles.gradientBtn}
+          >
+            <FontAwesome5 name="gavel" size={24} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
+    </Animated.View>
   );
 }
 
@@ -264,11 +281,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   floatingButtons: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 44,
-    marginTop: 10,
+    zIndex: 100,
   },
   dislikeBtn: {
     width: 68,

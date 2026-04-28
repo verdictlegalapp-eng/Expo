@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function ConsultationSent() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -19,7 +20,13 @@ export default function ConsultationSent() {
 
         <TouchableOpacity 
           style={styles.messageButton} 
-          onPress={() => router.push('/messages')}
+          onPress={() => {
+            if (userId) {
+              router.push(`/chat/${userId}`);
+            } else {
+              router.push('/messages');
+            }
+          }}
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
           <Text style={styles.messageButtonText}>Message Attorney</Text>

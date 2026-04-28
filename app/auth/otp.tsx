@@ -12,6 +12,7 @@ import {
   Keyboard,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,10 +77,18 @@ export default function OTP() {
       const codeStr = code.join('');
       await verifyEmailOtp(email, codeStr, buildProfile());
       
-      router.push({
-        pathname: '/auth/profile-pic',
-        params: { role: roleParam || 'client' },
-      });
+      if (params.isLogin === 'true') {
+        if (roleParam === 'attorney') {
+          router.replace('/attorney-profile');
+        } else {
+          router.replace('/discovery');
+        }
+      } else {
+        router.push({
+          pathname: '/auth/profile-pic',
+          params: { role: roleParam || 'client' },
+        });
+      }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Verification failed';
       Alert.alert('Could not verify', message);
@@ -126,69 +135,78 @@ export default function OTP() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.inner}>
-            <View style={styles.header}>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              >
-                <Ionicons name="arrow-back" size={28} color="#0F172A" />
-              </TouchableOpacity>
-              <Text style={styles.stepIndicator}>Step 2 of 3</Text>
-            </View>
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.inner}>
+              <View>
+                <View style={styles.header}>
+                  <TouchableOpacity
+                    onPress={() => router.back()}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  >
+                    <Ionicons name="arrow-back" size={28} color="#0F172A" />
+                  </TouchableOpacity>
+                  <Text style={styles.stepIndicator}>Step 2 of 3</Text>
+                </View>
 
-            <View style={styles.content}>
-              <Text style={styles.title}>Verify email</Text>
-              <Text style={styles.subtitle}>
-                We sent a 6-digit code to{' '}
-                <Text style={styles.boldPhone}>{sp(params.email) || 'your email'}</Text>.
-              </Text>
+                <View style={styles.content}>
+                  <Text style={styles.title}>Verify email</Text>
+                  <Text style={styles.subtitle}>
+                    We sent a 6-digit code to{' '}
+                    <Text style={styles.boldPhone}>{sp(params.email) || 'your email'}</Text>.
+                  </Text>
 
 
-              <View style={styles.otpContainer}>
-                {code.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => {
-                      inputs.current[index] = ref;
-                    }}
-                    style={[styles.otpInput, digit.length > 0 && styles.otpInputActive]}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    value={digit}
-                    onChangeText={(text) => handleTextChange(text, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
-                    editable={!busy}
-                    autoFocus={index === 0}
-                  />
-                ))}
+                  <View style={styles.otpContainer}>
+                    {code.map((digit, index) => (
+                      <TextInput
+                        key={index}
+                        ref={(ref) => {
+                          inputs.current[index] = ref;
+                        }}
+                        style={[styles.otpInput, digit.length > 0 && styles.otpInputActive]}
+                        keyboardType="number-pad"
+                        maxLength={1}
+                        value={digit}
+                        onChangeText={(text) => handleTextChange(text, index)}
+                        onKeyPress={(e) => handleKeyPress(e, index)}
+                        editable={!busy}
+                        autoFocus={index === 0}
+                      />
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.resendButton}
+                    onPress={() => void handleResend()}
+                    disabled={resending || busy}
+                  >
+                    <Text style={styles.resendText}>
+                      {resending ? 'Sending…' : "I didn't receive a code"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.resendButton}
-                onPress={() => void handleResend()}
-                disabled={resending || busy}
-              >
-                <Text style={styles.resendText}>
-                  {resending ? 'Sending…' : "I didn't receive a code"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.footer}>
+                <TouchableOpacity
+                  style={[styles.button, (!isComplete || busy) && styles.buttonDisabled]}
+                  onPress={() => void handleVerify()}
+                  disabled={!isComplete || busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>Verify & Continue</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <View style={styles.footer}>
-              <TouchableOpacity
-                style={[styles.button, (!isComplete || busy) && styles.buttonDisabled]}
-                onPress={() => void handleVerify()}
-                disabled={!isComplete || busy}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Verify & Continue</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 

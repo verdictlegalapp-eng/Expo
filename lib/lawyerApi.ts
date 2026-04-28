@@ -35,6 +35,7 @@ export async function fetchLawyers(filters: {
   
   return data.map((lawyer: any) => ({
     id: lawyer.id,
+    userId: lawyer.userId, // Added userId
     name: lawyer.user?.name || 'Anonymous Attorney',
     practice: lawyer.practice,
     experience: lawyer.experience,
@@ -59,6 +60,7 @@ export async function fetchLawyerById(id: string): Promise<any> {
   
   return {
     id: lawyer.id,
+    userId: lawyer.userId, // Added userId
     name: lawyer.user?.name || 'Anonymous Attorney',
     practice: lawyer.practice,
     experience: lawyer.experience,

@@ -102,8 +102,15 @@ export default function LawyerDetail() {
 
       <View style={styles.actionFooter}>
         <TouchableOpacity 
-          style={styles.messageButton}
-          onPress={() => router.push({ pathname: '/chat/[id]', params: { id: lawyer.id } })}
+          style={[styles.messageButton, !lawyer.userId && { opacity: 0.45 }]}
+          disabled={!lawyer.userId}
+          onPress={() => {
+            if (!lawyer.userId) return;
+            router.push({
+              pathname: '/chat/[id]',
+              params: { id: lawyer.userId, name: lawyer.name },
+            });
+          }}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={20} color="#273951" />
           <Text style={styles.messageButtonText}>Message</Text>
@@ -111,7 +118,7 @@ export default function LawyerDetail() {
 
         <TouchableOpacity 
           style={styles.ctaButton}
-          onPress={() => router.push('/consultation-sent')}
+          onPress={() => router.push({ pathname: '/consultation-sent', params: { userId: lawyer.userId } })}
         >
           <Text style={styles.ctaButtonText}>Request Consultation</Text>
         </TouchableOpacity>

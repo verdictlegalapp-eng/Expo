@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,6 +30,17 @@ export default function AttorneyProfile() {
   }, []);
 
   const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Sorry, we need camera roll permissions to make this work!',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -187,12 +198,15 @@ export default function AttorneyProfile() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Dashboard</Text>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/boost')}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/license-verification')}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#F0F9FF' }]}>
-                  <Ionicons name="rocket" size={20} color={Colors.electricBlue} />
+                  <Ionicons name="ribbon" size={20} color={Colors.electricBlue} />
                 </View>
-                <Text style={styles.menuItemText}>Boost Profile & Analytics</Text>
+                <Text style={styles.menuItemText}>License Verification</Text>
+              </View>
+              <View style={styles.badge}>
+                <Ionicons name="checkmark-sharp" size={12} color="#FFFFFF" />
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.border} />
             </TouchableOpacity>

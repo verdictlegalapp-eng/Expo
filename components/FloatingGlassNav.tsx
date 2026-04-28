@@ -19,7 +19,7 @@ export default function FloatingGlassNav() {
     { id: 'swipe', label: 'Swipe', icon: 'flame-outline', activeIcon: 'flame', path: '/discovery' },
     { id: 'explore', label: 'Explore', icon: 'compass-outline', activeIcon: 'compass', path: '/explore' },
     isAttorney 
-      ? { id: 'boost', label: 'Boost', icon: 'flash-outline', activeIcon: 'flash', path: '/boost' }
+      ? { id: 'license', label: 'License', icon: 'ribbon-outline', activeIcon: 'ribbon', path: '/license-verification' }
       : { id: 'likes', label: 'Likes', icon: 'heart-outline', activeIcon: 'heart', path: '/likes' },
     { id: 'chat', label: 'Chat', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles', path: '/messages' },
     { id: 'profile', label: 'Profile', icon: 'person-outline', activeIcon: 'person', path: isAttorney ? '/attorney-profile' : '/client-profile' },

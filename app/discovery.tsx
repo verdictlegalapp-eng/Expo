@@ -54,9 +54,11 @@ export default function Discovery() {
     setLawyers((prev) => prev.slice(1));
   };
 
-  const handleSwipeRight = (id: string) => {
+  const handleSwipeRight = (userId?: string) => {
     setLawyers((prev) => prev.slice(1));
-    router.push('/consultation-sent');
+    if (userId) {
+      router.push(`/chat/${userId}`);
+    }
   };
 
   return (
@@ -85,8 +87,8 @@ export default function Discovery() {
               <SwipeCard
                 key={lawyer.id}
                 lawyer={lawyer}
-                onSwipeLeft={index === 0 ? handleSwipeLeft : () => {}}
-                onSwipeRight={index === 0 ? () => handleSwipeRight(lawyer.id) : () => {}}
+                onSwipeLeft={handleSwipeLeft}
+                onSwipeRight={() => handleSwipeRight(lawyer.userId || lawyer.id)}
               />
             )).reverse()
           ) : (

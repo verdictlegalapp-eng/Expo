@@ -28,24 +28,21 @@ import { View, Image, StyleSheet, Animated } from 'react-native';
 import { useState, useRef } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import FloatingGlassNav from '../components/FloatingGlassNav';
-import { UserProvider } from '../context/UserContext';
-import { getFirebaseApp } from '../lib/firebase';
+import { UserProvider, useUser } from '../context/UserContext';
 import { fetchCurrentUser } from '../lib/authApi';
 
-// Initialize Firebase Eagerly
-getFirebaseApp();
-
-export default function RootLayout() {
+function AppContent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [loaded, error] = useFonts({
+  const { setRole } = useUser();
+  const [isAppReady, setIsAppReady] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const [fontsLoaded, fontError] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
     Outfit_700Bold,
   });
-
-  const [isAppReady, setIsAppReady] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Define routes where the navigation bar should be visible
   const showNav = [
@@ -55,7 +52,8 @@ export default function RootLayout() {
     '/messages', 
     '/boost',
     '/client-profile', 
-    '/attorney-profile'
+    '/attorney-profile',
+    '/license-verification'
   ].includes(pathname);
 
   useEffect(() => {
@@ -63,6 +61,10 @@ export default function RootLayout() {
       try {
         const user = await fetchCurrentUser();
         if (user) {
+          // Map backend 'lawyer' to frontend 'attorney'
+          const role = user.role === 'lawyer' ? 'attorney' : 'client';
+          setRole(role);
+          
           if (user.role === 'lawyer') {
             router.replace('/attorney-profile');
           } else {
@@ -74,7 +76,7 @@ export default function RootLayout() {
       }
     };
 
-    if (loaded || error) {
+    if (fontsLoaded || fontError) {
       // Hide native splash immediately once bundle is loaded
       SplashScreen.hideAsync();
       
@@ -95,49 +97,56 @@ export default function RootLayout() {
 
       return () => clearTimeout(timer);
     }
-  }, [loaded, error]);
+  }, [fontsLoaded, fontError]);
 
-  if (!loaded && !error) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
+    <ThemeProvider value={VerdictTheme}>
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ 
+          contentStyle: { backgroundColor: '#FFFFFF' },
+          headerShown: false
+        }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="discovery" options={{ headerShown: false }} />
+          <Stack.Screen name="lawyer/[id]" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen name="license-verification" options={{ presentation: 'modal', headerShown: false }} />
+        </Stack>
+        
+        {/* Global Navigation - Only shown on main screens */}
+        {showNav && <FloatingGlassNav />}
+      </View>
+
+      <StatusBar style="dark" />
+      
+      {/* Custom JS Splash Screen Overlay */}
+      {!isAppReady && (
+        <Animated.View 
+          style={[
+            StyleSheet.absoluteFill, 
+            styles.splashContainer, 
+            { opacity: fadeAnim }
+          ]}
+        >
+          <Image 
+            source={require('../assets/images/logo-full.jpg')} 
+            style={styles.splashLogo} 
+            resizeMode="contain"
+          />
+        </Animated.View>
+      )}
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <UserProvider>
-        <ThemeProvider value={VerdictTheme}>
-          <View style={{ flex: 1 }}>
-            <Stack screenOptions={{ 
-              contentStyle: { backgroundColor: '#FFFFFF' },
-              headerShown: false
-            }}>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="discovery" options={{ headerShown: false }} />
-              <Stack.Screen name="lawyer/[id]" options={{ presentation: 'modal', headerShown: false }} />
-            </Stack>
-            
-            {/* Global Navigation - Only shown on main screens */}
-            {showNav && <FloatingGlassNav />}
-          </View>
-
-          <StatusBar style="dark" />
-          
-          {/* Custom JS Splash Screen Overlay */}
-          {!isAppReady && (
-            <Animated.View 
-              style={[
-                StyleSheet.absoluteFill, 
-                styles.splashContainer, 
-                { opacity: fadeAnim }
-              ]}
-            >
-              <Image 
-                source={require('../assets/images/logo-full.jpg')} 
-                style={styles.splashLogo} 
-                resizeMode="contain"
-              />
-            </Animated.View>
-          )}
-        </ThemeProvider>
+        <AppContent />
       </UserProvider>
     </GestureHandlerRootView>
   );

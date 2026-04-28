@@ -27,6 +27,16 @@ export type VerifyResponse = {
     state: string | null;
     city: string | null;
     legalNeed: string | null;
+    lawyerProfile?: {
+      practice: string | null;
+      experience: string | null;
+      bio: string | null;
+      state: string | null;
+      city: string | null;
+      location: string | null;
+      barId: string | null;
+      rating: number;
+    };
   };
 };
 
@@ -174,6 +184,8 @@ export async function updateProfile(data: {
   state?: string;
   legalNeed?: string;
   image?: string;
+  bio?: string;
+  practice?: string;
 }): Promise<void> {
   const base = getBaseUrl();
   const token = await getSessionToken();
