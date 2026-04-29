@@ -22,6 +22,7 @@ export default function FloatingGlassNav() {
       ? { id: 'license', label: 'License', icon: 'ribbon-outline', activeIcon: 'ribbon', path: '/license-verification' }
       : { id: 'likes', label: 'Likes', icon: 'heart-outline', activeIcon: 'heart', path: '/likes' },
     { id: 'chat', label: 'Chat', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles', path: '/messages' },
+    { id: 'alerts', label: 'Alerts', icon: 'notifications-outline', activeIcon: 'notifications', path: '/notifications' },
     { id: 'profile', label: 'Profile', icon: 'person-outline', activeIcon: 'person', path: isAttorney ? '/attorney-profile' : '/client-profile' },
   ];
 

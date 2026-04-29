@@ -13,16 +13,6 @@ export default function Header() {
         <View style={styles.logoContainer}>
             <Text style={styles.logoText}>VERDICT</Text>
         </View>
-        
-        <View style={styles.actions}>
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={() => router.push('/notifications')}
-          >
-            <Ionicons name="notifications-outline" size={24} color={Colors.navy} />
-            <View style={styles.badge} />
-          </TouchableOpacity>
-        </View>
       </View>
     </SafeAreaView>
   );
