@@ -31,7 +31,8 @@ export default function AttorneyProfile() {
       fetchBadgeMap()
         .then((map) => {
           const badges = map[String(user.id)] || [];
-          setLicenseVerified(badges.includes('verified'));
+          const isVerified = badges.some(b => b.toLowerCase() === 'verified');
+          setLicenseVerified(isVerified);
         })
         .catch(() => setLicenseVerified(false));
     }).catch(console.error);

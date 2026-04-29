@@ -4,7 +4,8 @@
  */
 
 function getServicesUrl(): string {
-  return (process.env.EXPO_PUBLIC_SERVICES_URL || '').replace(/\/$/, '');
+  const url = process.env.EXPO_PUBLIC_SERVICES_URL || process.env.EXPO_PUBLIC_API_URL || '';
+  return url.replace(/\/$/, '');
 }
 
 export function isServicesConfigured(): boolean {

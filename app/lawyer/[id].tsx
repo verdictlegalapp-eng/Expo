@@ -80,11 +80,17 @@ export default function LawyerDetail() {
           <Text style={styles.location}>{lawyer.location}</Text>
 
           <View style={styles.badges}>
-            {(lawyer.badges || []).map((badge: string, idx: number) => (
-              <View key={idx} style={styles.badge}>
-                <Text style={styles.badgeText}>{badge.toLowerCase() === 'verified' ? 'Verified' : badge}</Text>
-              </View>
-            ))}
+            {(lawyer.badges || []).map((badge: string, idx: number) => {
+              const isVerified = badge.toLowerCase() === 'verified';
+              return (
+                <View key={idx} style={[styles.badge, isVerified && styles.verifiedBadge]}>
+                  {isVerified && <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />}
+                  <Text style={[styles.badgeText, isVerified && styles.verifiedBadgeText]}>
+                    {isVerified ? 'Verified' : badge}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           <View style={styles.section}>
@@ -234,6 +240,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 12,
     color: '#273951',
+  },
+  verifiedBadge: {
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  verifiedBadgeText: {
+    color: '#FFFFFF',
   },
   section: {
     marginBottom: 24,
