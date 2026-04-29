@@ -60,35 +60,34 @@ function AppContent() {
   useEffect(() => {
     const checkLogin = async () => {
       try {
+        console.log('[AutoLogin] Checking session...');
         const user = await fetchCurrentUser();
+        console.log('[AutoLogin] User found:', user?.role);
+        
         if (user) {
-          // Map backend 'lawyer' to frontend 'attorney'
           const role = user.role === 'lawyer' ? 'attorney' : 'client';
           setRole(role);
-
           registerForPushIfConfigured({ id: user.id, role: user.role }).catch(() => {});
           
-          if (user.role === 'lawyer') {
-            router.replace('/attorney-profile');
-          } else {
-            router.replace('/discovery');
-          }
+          // Small delay to ensure router is ready
+          setTimeout(() => {
+            if (user.role === 'lawyer') {
+              router.replace('/attorney-profile');
+            } else {
+              router.replace('/discovery');
+            }
+          }, 100);
         }
       } catch (e) {
-        // Not logged in, do nothing (stay on landing page)
+        console.log('[AutoLogin] No active session or error:', e);
       }
     };
 
     if (fontsLoaded || fontError) {
-      // Hide native splash immediately once bundle is loaded
       SplashScreen.hideAsync();
-      
-      // Attempt auto-login in the background
       checkLogin();
       
-      // Wait for 1.5s as requested for the brand splash
       const timer = setTimeout(() => {
-        // Fade out animation
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 400,
