@@ -4,7 +4,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { fetchNotifications } from '../lib/lawyerApi';
 import { Colors } from '../constants/Colors';
-import { format } from 'date-fns';
+
+const formatDate = (dateString: string) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -49,7 +63,7 @@ export default function NotificationsScreen() {
       <View style={styles.content}>
         <View style={styles.cardHeader}>
           <Text style={styles.typeText}>{item.type === 'individual' ? 'Direct Message' : 'Announcement'}</Text>
-          <Text style={styles.dateText}>{format(new Date(item.createdAt), 'MMM d, h:mm a')}</Text>
+          <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
         </View>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.body}>{item.body}</Text>
@@ -63,7 +77,16 @@ export default function NotificationsScreen() {
         title: 'Notifications',
         headerShown: true,
         headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/discovery');
+              }
+            }} 
+            style={{ marginLeft: 10 }}
+          >
             <Ionicons name="arrow-back" size={24} color={Colors.navy} />
           </TouchableOpacity>
         ),

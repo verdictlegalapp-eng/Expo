@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -8,57 +8,38 @@ import {
   TouchableOpacity, 
   TextInput,
   ActivityIndicator,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
-import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchCurrentUser } from '../lib/authApi';
-import {
-  fetchVerificationStatus,
-  isServicesConfigured,
-  submitPhysicalVerificationRequest,
-  type VerificationUiStatus,
-} from '../lib/servicesApi';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function LicenseVerification() {
   const router = useRouter();
-  const [barId, setBarId] = React.useState('');
-  const [selectedState, setSelectedState] = React.useState<'CA' | 'TX'>('CA');
-  const [status, setStatus] = React.useState<'verified' | 'pending' | 'unverified' | 'failed'>('unverified');
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [lawyerName, setLawyerName] = React.useState('');
-  const [physicalStatus, setPhysicalStatus] = React.useState<VerificationUiStatus>('none');
-  const [accountUserId, setAccountUserId] = React.useState<number | null>(null);
-  const [accountName, setAccountName] = React.useState('');
-  const [accountEmail, setAccountEmail] = React.useState('');
-  const [isAttorneyAccount, setIsAttorneyAccount] = React.useState(false);
-  const [physicalSubmitting, setPhysicalSubmitting] = React.useState(false);
-
-  React.useEffect(() => {
-    fetchCurrentUser()
-      .then((u) => {
-        setIsAttorneyAccount(u.role === 'lawyer');
-        setAccountUserId(u.id);
-        setAccountName(u.name || '');
-        setAccountEmail(u.email || '');
-        return fetchVerificationStatus(u.id);
-      })
-      .then((s) => setPhysicalStatus(s.status))
-      .catch(() => {});
-  }, []);
+  const [barId, setBarId] = useState('');
+  const [selectedState, setSelectedState] = useState<'CA' | 'TX'>('TX');
+  const [status, setStatus] = useState<'unverified' | 'verifying' | 'success' | 'failed'>('unverified');
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1); // 1: Input, 2: Verifying, 3: Success
 
   const handleVerify = async () => {
     if (!barId.trim()) {
-      Alert.alert('Error', 'Please enter your Bar ID');
+      Alert.alert('Missing Bar ID', 'Please enter your state bar number to continue.');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
+    setStatus('verifying');
+    setStep(2);
+
     try {
+      // Simulate real-time progress for better UX
       const response = await fetch(`${API_URL}/api/lawyers/verify-license`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,212 +49,134 @@ export default function LicenseVerification() {
       const result = await response.json();
       
       if (response.ok && result.data && result.data.verified) {
-        setStatus('verified');
-        if (result.data.details && result.data.details.name) {
-          setLawyerName(result.data.details.name);
-        }
+        setStatus('success');
+        setStep(3);
       } else {
         setStatus('failed');
+        setStep(1);
+        Alert.alert('Verification Failed', result.message || 'We could not find a match for this Bar ID in the state registry.');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Verification Failed', 'Could not reach the verification server. Please try again later.');
       setStatus('failed');
+      setStep(1);
+      Alert.alert('Connection Error', 'Could not reach the verification server. Please check your internet.');
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePhysicalRequest = async () => {
-    if (!isServicesConfigured()) {
-      Alert.alert(
-        'Not configured',
-        'Set EXPO_PUBLIC_SERVICES_URL to your VerdictServer base URL to submit physical verification requests.',
-      );
-      return;
-    }
-    if (!barId.trim()) {
-      Alert.alert('Bar ID required', 'Enter your Bar ID above so admins can match your request.');
-      return;
-    }
-    if (!accountUserId) {
-      Alert.alert('Sign in required', 'Sign in to submit a verification request.');
-      return;
-    }
-    setPhysicalSubmitting(true);
-    try {
-      await submitPhysicalVerificationRequest({
-        userId: accountUserId,
-        name: accountName,
-        email: accountEmail,
-        barId: barId.trim(),
-        state: selectedState,
-      });
-      setPhysicalStatus('pending');
-      Alert.alert('Submitted', 'Your request was sent for admin review. You will see a Verified badge when approved.');
-    } catch (e: any) {
-      Alert.alert('Request failed', e?.message || 'Could not submit.');
-    } finally {
-      setPhysicalSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>License Verification</Text>
-            <Text style={styles.subtitle}>Verify your professional credentials to build trust with clients.</Text>
-          </View>
+    <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ 
+        title: 'License Verification',
+        headerShown: true,
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
+            <Ionicons name="arrow-back" size={24} color={Colors.navy} />
+          </TouchableOpacity>
+        ),
+        headerTitleStyle: { fontFamily: 'Outfit_700Bold', fontSize: 20 },
+        headerShadowVisible: false,
+      }} />
 
-          <View style={styles.statusCard}>
-            <LinearGradient
-              colors={status === 'verified' ? ['#10B981', '#059669'] : ['#6366F1', '#4F46E5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.statusGradient}
-            >
-              <View style={styles.statusHeader}>
-                <View style={[styles.statusBadge, status === 'failed' && { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                  <Ionicons 
-                    name={status === 'verified' ? "checkmark-circle" : (status === 'failed' ? "close-circle" : "time")} 
-                    size={24} 
-                    color="#FFFFFF" 
-                  />
-                  <Text style={styles.statusBadgeText}>
-                    {status === 'verified' ? 'VERIFIED' : (status === 'failed' ? 'VERIFICATION FAILED' : 'UNVERIFIED')}
-                  </Text>
-                </View>
-                <MaterialCommunityIcons name="shield-check" size={40} color="rgba(255,255,255,0.3)" />
-              </View>
-              
-              <Text style={styles.statusMessage}>
-                {status === 'verified' 
-                  ? `Your profile is verified. Match found: ${lawyerName || 'Eligible Attorney'}` 
-                  : (status === 'failed' 
-                      ? 'We could not verify your bar number with the state registry. Please check your Bar ID.'
-                      : 'Please enter your Bar ID and select your state to verify your credentials.')}
-              </Text>
-            </LinearGradient>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBarBackground}>
+            <View style={[styles.progressBarFill, { width: `${(step / 3) * 100}%` }]} />
           </View>
+          <View style={styles.stepLabels}>
+            <Text style={[styles.stepLabel, step >= 1 && styles.activeStepLabel]}>Details</Text>
+            <Text style={[styles.stepLabel, step >= 2 && styles.activeStepLabel]}>Checking</Text>
+            <Text style={[styles.stepLabel, step >= 3 && styles.activeStepLabel]}>Verified</Text>
+          </View>
+        </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Bar Association Details</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Official Verification</Text>
+          <Text style={styles.subtitle}>Enter your State Bar number. We will instantly verify your credentials with the Texas Bar registry.</Text>
+        </View>
+
+        {step < 3 ? (
+          <View style={styles.formCard}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>State Bar ID</Text>
+              <Text style={styles.label}>STATE BAR NUMBER</Text>
               <View style={styles.inputWrapper}>
                 <FontAwesome5 name="id-card" size={18} color={Colors.electricBlue} style={styles.inputIcon} />
                 <TextInput 
                   style={styles.input}
                   value={barId}
                   onChangeText={setBarId}
-                  placeholder="Enter your Bar ID"
+                  placeholder="e.g. 240XXXXX"
+                  keyboardType="numeric"
+                  editable={!loading}
                 />
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Issuing State</Text>
+              <Text style={styles.label}>ISSUING STATE</Text>
               <View style={styles.stateToggleContainer}>
-                <TouchableOpacity 
-                  style={[styles.stateToggleBtn, selectedState === 'CA' && styles.stateToggleActive]}
-                  onPress={() => setSelectedState('CA')}
-                >
-                  <Text style={[styles.stateToggleText, selectedState === 'CA' && styles.stateToggleTextActive]}>California</Text>
-                </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.stateToggleBtn, selectedState === 'TX' && styles.stateToggleActive]}
                   onPress={() => setSelectedState('TX')}
+                  disabled={loading}
                 >
                   <Text style={[styles.stateToggleText, selectedState === 'TX' && styles.stateToggleTextActive]}>Texas</Text>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.stateToggleBtn, selectedState === 'CA' && styles.stateToggleActive]}
+                  onPress={() => setSelectedState('CA')}
+                  disabled={loading}
+                >
+                  <Text style={[styles.stateToggleText, selectedState === 'CA' && styles.stateToggleTextActive]}>California</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Documents</Text>
-            
-            <TouchableOpacity style={styles.uploadCard}>
-              <View style={styles.uploadIconCircle}>
-                <Ionicons name="cloud-upload" size={28} color={Colors.electricBlue} />
-              </View>
-              <View style={styles.uploadInfo}>
-                <Text style={styles.uploadTitle}>Certificate of Good Standing</Text>
-                <Text style={styles.uploadSubtitle}>Upload a PDF or Image (Max 5MB)</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.border} />
+            <TouchableOpacity 
+              style={[styles.submitButton, loading && { opacity: 0.7 }]} 
+              onPress={handleVerify}
+              disabled={loading}
+            >
+              {loading ? (
+                <View style={styles.loaderRow}>
+                  <ActivityIndicator color="#FFFFFF" />
+                  <Text style={styles.submitButtonText}>Searching Registry...</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitButtonText}>Verify License Now</Text>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.uploadCard}>
-              <View style={[styles.uploadIconCircle, { backgroundColor: '#F0FDF4' }]}>
-                <Ionicons name="document-text" size={28} color="#10B981" />
-              </View>
-              <View style={styles.uploadInfo}>
-                <Text style={styles.uploadTitle}>bar_certificate_final.pdf</Text>
-                <Text style={[styles.uploadSubtitle, { color: '#10B981' }]}>Uploaded on May 12, 2024</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            </TouchableOpacity>
-          </View>
-
-          {isAttorneyAccount ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Physical verification (admin)</Text>
-              <Text style={styles.physicalHint}>
-                Submit your Bar ID and state for staff to confirm against the registry and grant a Verified badge on your profile.
-              </Text>
-              <View style={styles.physicalStatusBox}>
-                <Text style={styles.physicalStatusLabel}>Request status</Text>
-                <Text style={styles.physicalStatusValue}>
-                  {physicalStatus === 'none' && 'Not submitted'}
-                  {physicalStatus === 'pending' && 'Pending review'}
-                  {physicalStatus === 'approved' && 'Approved — badge active'}
-                  {physicalStatus === 'rejected' && 'Not approved — contact support'}
-                </Text>
-              </View>
-              {!isServicesConfigured() ? (
-                <Text style={styles.configHint}>
-                  Set EXPO_PUBLIC_SERVICES_URL in your environment to enable requests.
-                </Text>
-              ) : null}
-              <TouchableOpacity
-                style={[
-                  styles.secondaryButton,
-                  (physicalStatus === 'pending' || physicalSubmitting) && { opacity: 0.6 },
-                ]}
-                onPress={handlePhysicalRequest}
-                disabled={physicalStatus === 'pending' || physicalSubmitting}
-              >
-                {physicalSubmitting ? (
-                  <ActivityIndicator color={Colors.navy} />
-                ) : (
-                  <Text style={styles.secondaryButtonText}>
-                    {physicalStatus === 'pending' ? 'Request pending' : 'Submit physical verification request'}
-                  </Text>
-                )}
-              </TouchableOpacity>
+            <View style={styles.hintBox}>
+              <Ionicons name="information-circle" size={16} color="#64748B" />
+              <Text style={styles.hintText}>No documents required. We use live scraping to confirm your status instantly.</Text>
             </View>
-          ) : null}
-
-          <TouchableOpacity 
-            style={styles.submitButton} 
-            onPress={handleVerify}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Verify License</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+          </View>
+        ) : (
+          <View style={styles.successCard}>
+            <LinearGradient
+              colors={['#10B981', '#059669']}
+              style={styles.successIconCircle}
+            >
+              <Ionicons name="checkmark-sharp" size={48} color="white" />
+            </LinearGradient>
+            <Text style={styles.successTitle}>Identity Verified!</Text>
+            <Text style={styles.successSubtitle}>
+              We found your license in the {selectedState === 'TX' ? 'Texas' : 'California'} Bar registry. Your profile now displays the Verified Badge.
+            </Text>
+            <TouchableOpacity 
+              style={styles.doneButton} 
+              onPress={() => router.replace('/attorney-profile')}
+            >
+              <Text style={styles.doneButtonText}>Return to Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -282,95 +185,74 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  safeArea: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingBottom: 40,
+    padding: 24,
+  },
+  progressContainer: {
+    marginBottom: 40,
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.electricBlue,
+  },
+  stepLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stepLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  activeStepLabel: {
+    color: Colors.electricBlue,
   },
   header: {
-    padding: 24,
-    paddingBottom: 16,
+    marginBottom: 32,
   },
   title: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 28,
-    color: Colors.text,
+    color: Colors.navy,
+    marginBottom: 12,
   },
   subtitle: {
     fontFamily: 'Outfit_400Regular',
-    fontSize: 15,
-    color: Colors.subtext,
-    marginTop: 8,
-    lineHeight: 22,
+    fontSize: 16,
+    color: '#64748B',
+    lineHeight: 24,
   },
-  statusCard: {
-    marginHorizontal: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 32,
-    elevation: 8,
-    shadowColor: Colors.navy,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-  },
-  statusGradient: {
+  formCard: {
+    backgroundColor: '#F8FAFC',
     padding: 24,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 8,
-  },
-  statusBadgeText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 12,
-    color: '#FFFFFF',
-    letterSpacing: 1,
-  },
-  statusMessage: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
-    lineHeight: 22,
-  },
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    color: Colors.text,
-    marginBottom: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   label: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 14,
-    color: Colors.subtext,
-    marginBottom: 8,
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 11,
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 12,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.slate,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#E2E8F0',
     paddingHorizontal: 16,
   },
   inputIcon: {
@@ -380,16 +262,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: Colors.text,
+    fontSize: 18,
+    color: Colors.navy,
   },
   stateToggleContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.slate,
+    backgroundColor: '#E2E8F0',
     borderRadius: 16,
     padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   stateToggleBtn: {
     flex: 1,
@@ -399,116 +279,90 @@ const styles = StyleSheet.create({
   },
   stateToggleActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   stateToggleText: {
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 14,
-    color: Colors.subtext,
+    color: '#64748B',
   },
   stateToggleTextActive: {
     color: Colors.electricBlue,
   },
-  uploadCard: {
+  submitButton: {
+    backgroundColor: Colors.navy,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: Colors.navy,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
+  },
+  loaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.slate,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  uploadIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#F0F9FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  uploadInfo: {
-    flex: 1,
-  },
-  uploadTitle: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 15,
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  uploadSubtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 12,
-    color: Colors.subtext,
-  },
-  submitButton: {
-    marginHorizontal: 24,
-    backgroundColor: Colors.navy,
-    height: 58,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.navy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 5,
+    gap: 12,
   },
   submitButtonText: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 16,
     color: '#FFFFFF',
   },
-  physicalHint: {
+  hintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
+    paddingHorizontal: 8,
+  },
+  hintText: {
     fontFamily: 'Outfit_400Regular',
-    fontSize: 14,
-    color: Colors.subtext,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  physicalStatusBox: {
-    backgroundColor: Colors.slate,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 16,
-  },
-  physicalStatusLabel: {
-    fontFamily: 'Outfit_600SemiBold',
     fontSize: 12,
-    color: Colors.subtext,
-    marginBottom: 4,
+    color: '#64748B',
+    flex: 1,
   },
-  physicalStatusValue: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 16,
-    color: Colors.text,
+  successCard: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
-  configHint: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 13,
-    color: '#B45309',
-    marginBottom: 12,
-  },
-  secondaryButton: {
-    marginHorizontal: 0,
-    backgroundColor: '#FFFFFF',
-    height: 52,
-    borderRadius: 16,
+  successIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.navy,
+    marginBottom: 24,
   },
-  secondaryButtonText: {
+  successTitle: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: 15,
-    color: Colors.navy,
+    fontSize: 26,
+    color: '#065F46',
+    marginBottom: 12,
+  },
+  successSubtitle: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 16,
+    color: '#047857',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  doneButton: {
+    backgroundColor: '#065F46',
+    paddingHorizontal: 32,
+    paddingVertical: 18,
+    borderRadius: 30,
+  },
+  doneButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });
