@@ -93,14 +93,14 @@ const COUNTRY_CODES = [
 
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
-
-
+import PrivacyConsent from '../../components/PrivacyConsent';
 
 export default function Login() {
   const router = useRouter();
   const { role } = useLocalSearchParams();
   const { userRole, setRole } = useUser();
   const isAttorney = userRole === 'attorney';
+  const [showConsent, setShowConsent] = useState(false);
   
   // Sync role to context if it's provided in params but doesn't match
   React.useEffect(() => {
@@ -184,6 +184,16 @@ export default function Login() {
       return;
     }
 
+    // Trigger Privacy Consent Modal at the final step
+    setShowConsent(true);
+  };
+
+  const handleAgree = async () => {
+    setShowConsent(false);
+    await startAuth();
+  };
+
+  const startAuth = async () => {
     setIsSendingSms(true);
     try {
       const { requestEmailOtp } = require('../../lib/authApi');
@@ -462,6 +472,12 @@ export default function Login() {
           </View>
         </View>
       </Modal>
+
+      <PrivacyConsent 
+        visible={showConsent} 
+        onAgree={handleAgree} 
+        onDecline={() => setShowConsent(false)} 
+      />
     </SafeAreaView>
   );
 }

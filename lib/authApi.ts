@@ -205,3 +205,21 @@ export async function updateProfile(data: {
     throw new Error(body.error || `Failed to update profile (${res.status})`);
   }
 }
+
+export async function deleteAccount(): Promise<boolean> {
+  try {
+    const base = getBaseUrl();
+    const token = await getSessionToken();
+    if (!base || !token) return false;
+
+    const res = await fetch(`${base}/api/auth/delete-account`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    return res.ok;
+  } catch (error) {
+    console.error('deleteAccount API failed:', error);
+    return false;
+  }
+}

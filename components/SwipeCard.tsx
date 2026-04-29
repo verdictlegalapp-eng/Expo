@@ -150,7 +150,7 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
                 <Ionicons name="ribbon" size={12} color="#3B82F6" />
                 <Text style={styles.expText}>{lawyer.experience}</Text>
               </View>
-              {lawyer.badges?.includes('verified') ? (
+              {lawyer.badges?.some(b => b.toLowerCase() === 'verified') ? (
                 <LinearGradient
                   colors={['#10B981', '#059669']}
                   start={{ x: 0, y: 0 }}

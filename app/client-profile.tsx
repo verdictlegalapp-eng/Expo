@@ -176,6 +176,15 @@ export default function ClientProfile() {
             </TouchableOpacity>
           )}
 
+          {!isEditing && (
+            <TouchableOpacity 
+              style={styles.deleteLink} 
+              onPress={() => router.push('/delete-account')}
+            >
+              <Text style={styles.deleteLinkText}>Permanently Delete My Account</Text>
+            </TouchableOpacity>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -307,5 +316,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  deleteLink: {
+    marginTop: 24,
+    alignItems: 'center',
+    padding: 10,
+  },
+  deleteLinkText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 14,
+    color: '#EF4444',
+    textDecorationLine: 'underline',
   },
 });

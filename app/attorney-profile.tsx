@@ -265,6 +265,13 @@ export default function AttorneyProfile() {
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={styles.deleteLink} 
+            onPress={() => router.push('/delete-account')}
+          >
+            <Text style={styles.deleteLinkText}>Permanently Delete My Account</Text>
+          </TouchableOpacity>
+
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
@@ -504,5 +511,16 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 16,
+  },
+  deleteLink: {
+    marginTop: 24,
+    alignItems: 'center',
+    padding: 10,
+  },
+  deleteLinkText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 14,
+    color: '#EF4444',
+    textDecorationLine: 'underline',
   },
 });

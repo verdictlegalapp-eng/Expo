@@ -19,6 +19,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
 import { requestEmailOtp } from '../../lib/authApi';
+import PrivacyConsent from '../../components/PrivacyConsent';
 
 export default function LoginExisting() {
   const router = useRouter();
@@ -28,13 +29,24 @@ export default function LoginExisting() {
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
+  const [showConsent, setShowConsent] = useState(false);
 
   const onNext = async () => {
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address');
       return;
     }
+    
+    // Trigger Privacy Consent Modal
+    setShowConsent(true);
+  };
 
+  const handleAgree = async () => {
+    setShowConsent(false);
+    await startAuth();
+  };
+
+  const startAuth = async () => {
     setIsSending(true);
     setError('');
     try {
@@ -139,6 +151,12 @@ export default function LoginExisting() {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      <PrivacyConsent 
+        visible={showConsent} 
+        onAgree={handleAgree} 
+        onDecline={() => setShowConsent(false)} 
+      />
     </SafeAreaView>
   );
 }

@@ -13,6 +13,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { fetchLawyers } from '../lib/lawyerApi';
+import Header from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { PRACTICE_AREAS } from '../constants/Legal';
@@ -76,6 +77,7 @@ export default function Explore() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
+      <Header />
       <SafeAreaView style={styles.safeArea}>
         
         {/* Header with Search */}

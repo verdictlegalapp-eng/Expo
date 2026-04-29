@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/images/logo-icon.jpg",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow Verdict to access your photos so you can select and upload a profile picture for your account.",
+        "NSCameraUsageDescription": "Allow Verdict to access your camera to take a professional profile photo for your verification."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +45,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app needs access to your photos to let you set a profile picture."
+          "photosPermission": "Allow Verdict to access your photos so you can select and upload a profile picture for your account.",
+          "cameraPermission": "Allow Verdict to access your camera to take a professional profile photo for your verification."
         }
       ]
     ],

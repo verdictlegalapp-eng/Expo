@@ -82,7 +82,7 @@ export default function LawyerDetail() {
           <View style={styles.badges}>
             {(lawyer.badges || []).map((badge: string, idx: number) => (
               <View key={idx} style={styles.badge}>
-                <Text style={styles.badgeText}>{badge === 'verified' ? 'Verified' : badge}</Text>
+                <Text style={styles.badgeText}>{badge.toLowerCase() === 'verified' ? 'Verified' : badge}</Text>
               </View>
             ))}
           </View>

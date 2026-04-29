@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { fetchLawyers } from '../lib/lawyerApi';
 import SwipeCard from '../components/SwipeCard';
+import Header from '../components/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
@@ -65,6 +66,7 @@ export default function Discovery() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <Stack.Screen options={{ headerShown: false }} />
+      <Header />
       
       {/* Background Instructions (Visible when cards are swiped) */}
       <View style={styles.instructionsContainer}>
