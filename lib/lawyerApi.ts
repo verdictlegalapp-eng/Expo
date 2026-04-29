@@ -62,6 +62,9 @@ export async function fetchLawyers(filters: {
     isVerified: !!lawyer.isVerified,
     image: lawyer.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(lawyer.user?.name || 'A')}&background=0D8ABC&color=fff`,
     rating: lawyer.rating || 0,
+    facebook: lawyer.facebook,
+    instagram: lawyer.instagram,
+    linkedin: lawyer.linkedin,
   }));
   return mergeBadgesAndFilterSuspended(mapped);
 }
@@ -89,6 +92,9 @@ export async function fetchLawyerById(id: string): Promise<any> {
     isVerified: !!lawyer.isVerified,
     image: lawyer.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(lawyer.user?.name || 'A')}&background=0D8ABC&color=fff`,
     rating: lawyer.rating || 0,
+    facebook: lawyer.facebook,
+    instagram: lawyer.instagram,
+    linkedin: lawyer.linkedin,
   };
   const [merged] = await mergeBadgesAndFilterSuspended([mapped]);
   return merged;
