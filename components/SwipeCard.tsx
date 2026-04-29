@@ -150,6 +150,17 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
                 <Ionicons name="ribbon" size={12} color="#3B82F6" />
                 <Text style={styles.expText}>{lawyer.experience}</Text>
               </View>
+              {lawyer.badges?.includes('verified') ? (
+                <LinearGradient
+                  colors={['#10B981', '#059669']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.verifiedBadge}
+                >
+                  <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+                  <Text style={styles.verifiedBadgeText}>Verified</Text>
+                </LinearGradient>
+              ) : null}
             </View>
 
             {/* Bio Snippet */}
@@ -269,6 +280,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   expText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    gap: 6,
+  },
+  verifiedBadgeText: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 12,
     color: '#FFFFFF',

@@ -14,6 +14,13 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import { fetchCurrentUser } from '../lib/authApi';
+import {
+  fetchVerificationStatus,
+  isServicesConfigured,
+  submitPhysicalVerificationRequest,
+  type VerificationUiStatus,
+} from '../lib/servicesApi';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -24,6 +31,25 @@ export default function LicenseVerification() {
   const [status, setStatus] = React.useState<'verified' | 'pending' | 'unverified' | 'failed'>('unverified');
   const [isLoading, setIsLoading] = React.useState(false);
   const [lawyerName, setLawyerName] = React.useState('');
+  const [physicalStatus, setPhysicalStatus] = React.useState<VerificationUiStatus>('none');
+  const [accountUserId, setAccountUserId] = React.useState<number | null>(null);
+  const [accountName, setAccountName] = React.useState('');
+  const [accountEmail, setAccountEmail] = React.useState('');
+  const [isAttorneyAccount, setIsAttorneyAccount] = React.useState(false);
+  const [physicalSubmitting, setPhysicalSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    fetchCurrentUser()
+      .then((u) => {
+        setIsAttorneyAccount(u.role === 'lawyer');
+        setAccountUserId(u.id);
+        setAccountName(u.name || '');
+        setAccountEmail(u.email || '');
+        return fetchVerificationStatus(u.id);
+      })
+      .then((s) => setPhysicalStatus(s.status))
+      .catch(() => {});
+  }, []);
 
   const handleVerify = async () => {
     if (!barId.trim()) {
@@ -55,6 +81,40 @@ export default function LicenseVerification() {
       setStatus('failed');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePhysicalRequest = async () => {
+    if (!isServicesConfigured()) {
+      Alert.alert(
+        'Not configured',
+        'Set EXPO_PUBLIC_SERVICES_URL to your VerdictServer base URL to submit physical verification requests.',
+      );
+      return;
+    }
+    if (!barId.trim()) {
+      Alert.alert('Bar ID required', 'Enter your Bar ID above so admins can match your request.');
+      return;
+    }
+    if (!accountUserId) {
+      Alert.alert('Sign in required', 'Sign in to submit a verification request.');
+      return;
+    }
+    setPhysicalSubmitting(true);
+    try {
+      await submitPhysicalVerificationRequest({
+        userId: accountUserId,
+        name: accountName,
+        email: accountEmail,
+        barId: barId.trim(),
+        state: selectedState,
+      });
+      setPhysicalStatus('pending');
+      Alert.alert('Submitted', 'Your request was sent for admin review. You will see a Verified badge when approved.');
+    } catch (e: any) {
+      Alert.alert('Request failed', e?.message || 'Could not submit.');
+    } finally {
+      setPhysicalSubmitting(false);
     }
   };
 
@@ -158,6 +218,45 @@ export default function LicenseVerification() {
               <Ionicons name="checkmark-circle" size={20} color="#10B981" />
             </TouchableOpacity>
           </View>
+
+          {isAttorneyAccount ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Physical verification (admin)</Text>
+              <Text style={styles.physicalHint}>
+                Submit your Bar ID and state for staff to confirm against the registry and grant a Verified badge on your profile.
+              </Text>
+              <View style={styles.physicalStatusBox}>
+                <Text style={styles.physicalStatusLabel}>Request status</Text>
+                <Text style={styles.physicalStatusValue}>
+                  {physicalStatus === 'none' && 'Not submitted'}
+                  {physicalStatus === 'pending' && 'Pending review'}
+                  {physicalStatus === 'approved' && 'Approved — badge active'}
+                  {physicalStatus === 'rejected' && 'Not approved — contact support'}
+                </Text>
+              </View>
+              {!isServicesConfigured() ? (
+                <Text style={styles.configHint}>
+                  Set EXPO_PUBLIC_SERVICES_URL in your environment to enable requests.
+                </Text>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  (physicalStatus === 'pending' || physicalSubmitting) && { opacity: 0.6 },
+                ]}
+                onPress={handlePhysicalRequest}
+                disabled={physicalStatus === 'pending' || physicalSubmitting}
+              >
+                {physicalSubmitting ? (
+                  <ActivityIndicator color={Colors.navy} />
+                ) : (
+                  <Text style={styles.secondaryButtonText}>
+                    {physicalStatus === 'pending' ? 'Request pending' : 'Submit physical verification request'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <TouchableOpacity 
             style={styles.submitButton} 
@@ -364,5 +463,52 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_700Bold',
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  physicalHint: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: Colors.subtext,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  physicalStatusBox: {
+    backgroundColor: Colors.slate,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 16,
+  },
+  physicalStatusLabel: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 12,
+    color: Colors.subtext,
+    marginBottom: 4,
+  },
+  physicalStatusValue: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 16,
+    color: Colors.text,
+  },
+  configHint: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 13,
+    color: '#B45309',
+    marginBottom: 12,
+  },
+  secondaryButton: {
+    marginHorizontal: 0,
+    backgroundColor: '#FFFFFF',
+    height: 52,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.navy,
+  },
+  secondaryButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 15,
+    color: Colors.navy,
   },
 });

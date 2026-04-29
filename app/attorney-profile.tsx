@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../constants/Colors';
 import { fetchCurrentUser, updateProfile } from '../lib/authApi';
+import { fetchBadgeMap } from '../lib/servicesApi';
 
 export default function AttorneyProfile() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function AttorneyProfile() {
     bio: '',
     location: ''
   });
+  const [licenseVerified, setLicenseVerified] = React.useState(false);
 
   React.useEffect(() => {
     fetchCurrentUser().then(user => {
@@ -26,6 +28,12 @@ export default function AttorneyProfile() {
         bio: user.lawyerProfile?.bio || '',
         location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
       });
+      fetchBadgeMap()
+        .then((map) => {
+          const badges = map[String(user.id)] || [];
+          setLicenseVerified(badges.includes('verified'));
+        })
+        .catch(() => setLicenseVerified(false));
     }).catch(console.error);
   }, []);
 
@@ -172,7 +180,15 @@ export default function AttorneyProfile() {
               source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
               style={styles.avatar} 
             />
-            <Text style={styles.name}>{userData?.name || 'Loading...'}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{userData?.name || 'Loading...'}</Text>
+              {licenseVerified ? (
+                <View style={styles.verifiedPill}>
+                  <Ionicons name="shield-checkmark" size={14} color="#FFFFFF" />
+                  <Text style={styles.verifiedPillText}>Verified</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.practice}>{userData?.lawyerProfile?.practice || 'Attorney at Law'}</Text>
             <View style={styles.statusBadge}>
               <View style={styles.statusDot} />
@@ -308,11 +324,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
+  },
   name: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 24,
     color: Colors.text,
-    marginBottom: 4,
+  },
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  verifiedPillText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   practice: {
     fontFamily: 'Outfit_400Regular',

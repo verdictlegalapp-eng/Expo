@@ -30,6 +30,7 @@ import { usePathname, useRouter } from 'expo-router';
 import FloatingGlassNav from '../components/FloatingGlassNav';
 import { UserProvider, useUser } from '../context/UserContext';
 import { fetchCurrentUser } from '../lib/authApi';
+import { registerForPushIfConfigured } from '../lib/pushRegistration';
 
 function AppContent() {
   const pathname = usePathname();
@@ -64,6 +65,8 @@ function AppContent() {
           // Map backend 'lawyer' to frontend 'attorney'
           const role = user.role === 'lawyer' ? 'attorney' : 'client';
           setRole(role);
+
+          registerForPushIfConfigured({ id: user.id, role: user.role }).catch(() => {});
           
           if (user.role === 'lawyer') {
             router.replace('/attorney-profile');

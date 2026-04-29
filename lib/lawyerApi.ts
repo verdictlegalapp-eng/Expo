@@ -1,10 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchBadgeMap, fetchSuspendedUserIds, isServicesConfigured } from './servicesApi';
 
 const SESSION_KEY = 'verdict_session_token';
 
 function getBaseUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_URL;
   return url?.replace(/\/$/, '') ?? '';
+}
+
+async function mergeBadgesAndFilterSuspended<T extends { userId?: string; badges?: string[] }>(
+  items: T[],
+): Promise<T[]> {
+  if (!isServicesConfigured()) return items;
+  const [badgeMap, suspended] = await Promise.all([fetchBadgeMap(), fetchSuspendedUserIds()]);
+  const suspendedSet = new Set(suspended);
+  return items
+    .filter((l) => !l.userId || !suspendedSet.has(String(l.userId)))
+    .map((l) => {
+      const extra = l.userId ? badgeMap[String(l.userId)] : undefined;
+      if (!extra?.length) return l;
+      const merged = [...new Set([...(l.badges || []), ...extra])];
+      return { ...l, badges: merged };
+    });
 }
 
 export async function fetchLawyers(filters: { 
@@ -33,7 +50,7 @@ export async function fetchLawyers(filters: {
     console.log(`[fetchLawyers] Received ${data?.length} lawyers. First bio: ${data[0]?.bio}`);
   }
   
-  return data.map((lawyer: any) => ({
+  const mapped = data.map((lawyer: any) => ({
     id: lawyer.id,
     userId: lawyer.userId, // Added userId
     name: lawyer.user?.name || 'Anonymous Attorney',
@@ -45,6 +62,7 @@ export async function fetchLawyers(filters: {
     image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
     rating: lawyer.rating || 0,
   }));
+  return mergeBadgesAndFilterSuspended(mapped);
 }
 
 export async function fetchLawyerById(id: string): Promise<any> {
@@ -57,8 +75,8 @@ export async function fetchLawyerById(id: string): Promise<any> {
   }
 
   const lawyer = body.data || body;
-  
-  return {
+
+  const mapped = {
     id: lawyer.id,
     userId: lawyer.userId, // Added userId
     name: lawyer.user?.name || 'Anonymous Attorney',
@@ -70,4 +88,6 @@ export async function fetchLawyerById(id: string): Promise<any> {
     image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
     rating: lawyer.rating || 0,
   };
+  const [merged] = await mergeBadgesAndFilterSuspended([mapped]);
+  return merged;
 }
