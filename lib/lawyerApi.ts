@@ -91,3 +91,21 @@ export async function fetchLawyerById(id: string): Promise<any> {
   const [merged] = await mergeBadgesAndFilterSuspended([mapped]);
   return merged;
 }
+
+export async function fetchNotifications(): Promise<any[]> {
+  const base = getBaseUrl();
+  const token = await AsyncStorage.getItem(SESSION_KEY);
+  
+  if (!token) return [];
+
+  const res = await fetch(`${base}/api/auth/notifications`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return [];
+
+  return body.data || body || [];
+}
