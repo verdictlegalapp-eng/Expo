@@ -137,10 +137,6 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
 
             {/* Highlights Row */}
             <View style={styles.highlightsRow}>
-              <LinearGradient
-                colors={['#3B82F6', '#273951']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
               <View style={styles.expBadge}>
                 <Ionicons name="time-outline" size={12} color="#3B82F6" />
                 <Text style={styles.expText}>{lawyer.experience || 'Experienced Attorney'}</Text>
