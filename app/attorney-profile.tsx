@@ -14,6 +14,7 @@ export default function AttorneyProfile() {
   const [profile, setProfile] = React.useState({
     name: '',
     practice: '',
+    experience: '',
     bio: '',
     location: ''
   });
@@ -25,6 +26,7 @@ export default function AttorneyProfile() {
       setProfile({
         name: user.name || '',
         practice: user.lawyerProfile?.practice || '',
+        experience: user.lawyerProfile?.experience || '',
         bio: user.lawyerProfile?.bio || '',
         location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
       });
@@ -83,6 +85,7 @@ export default function AttorneyProfile() {
         image: userData.image,
         bio: profile.bio,
         practice: profile.practice,
+        experience: profile.experience,
       });
       
       const updated = await fetchCurrentUser();
@@ -124,6 +127,14 @@ export default function AttorneyProfile() {
           value={profile.practice}
           onChangeText={t => setProfile({...profile, practice: t})}
           placeholder="e.g. Personal Injury"
+        />
+        
+        <Text style={styles.label}>Years of Experience</Text>
+        <TextInput 
+          style={styles.input}
+          value={profile.experience}
+          onChangeText={t => setProfile({...profile, experience: t})}
+          placeholder="e.g. 12 Years Experience"
         />
 
         <Text style={styles.label}>Location</Text>

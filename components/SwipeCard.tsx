@@ -141,26 +141,25 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
                 colors={['#3B82F6', '#273951']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.highlightBadge}
-              >
-                <Ionicons name="location" size={12} color="#FFFFFF" />
-                <Text style={styles.highlightText}>{lawyer.location}</Text>
-              </LinearGradient>
               <View style={styles.expBadge}>
-                <Ionicons name="ribbon" size={12} color="#3B82F6" />
-                <Text style={styles.expText}>{lawyer.experience}</Text>
+                <Ionicons name="time-outline" size={12} color="#3B82F6" />
+                <Text style={styles.expText}>{lawyer.experience || 'Experienced Attorney'}</Text>
               </View>
               {lawyer.isVerified || (Array.isArray(lawyer.badges) && lawyer.badges.some(b => b.toLowerCase() === 'verified')) ? (
                 <LinearGradient
                   colors={['#10B981', '#059669']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.verifiedBadge}
+                  style={styles.verifiedPill}
                 >
-                  <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
-                  <Text style={styles.verifiedBadgeText}>Verified</Text>
+                  <Ionicons name="shield-checkmark" size={10} color="#FFFFFF" />
+                  <Text style={styles.verifiedText}>Verified</Text>
                 </LinearGradient>
               ) : null}
+            </View>
+            <View style={styles.locationContainer}>
+              <Ionicons name="location-sharp" size={14} color="#64748B" />
+              <Text style={styles.locationText}>{lawyer.location}</Text>
             </View>
 
             {/* Bio Snippet */}
@@ -284,7 +283,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
   },
-  verifiedBadge: {
+  verifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -292,10 +291,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 6,
   },
-  verifiedBadgeText: {
+  verifiedText: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 12,
     color: '#FFFFFF',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  locationText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 14,
+    color: '#CBD5E1',
   },
   bioExcerpt: {
     fontFamily: 'Outfit_400Regular',
