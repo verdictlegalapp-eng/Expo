@@ -111,29 +111,29 @@ export default function LawyerDetail() {
               <View style={styles.socialRow}>
                 {lawyer.linkedin && (
                   <TouchableOpacity 
-                    style={styles.socialButton} 
+                    style={[styles.socialButton, { backgroundColor: '#0077B5' }]} 
                     onPress={() => Linking.openURL(lawyer.linkedin)}
                   >
-                    <Ionicons name="logo-linkedin" size={24} color="#0077B5" />
-                    <Text style={styles.socialButtonText}>LinkedIn</Text>
+                    <Ionicons name="logo-linkedin" size={20} color="#FFFFFF" />
+                    <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>LinkedIn</Text>
                   </TouchableOpacity>
                 )}
                 {lawyer.instagram && (
                   <TouchableOpacity 
-                    style={styles.socialButton} 
+                    style={[styles.socialButton, { backgroundColor: '#E4405F' }]} 
                     onPress={() => Linking.openURL(lawyer.instagram)}
                   >
-                    <Ionicons name="logo-instagram" size={24} color="#E4405F" />
-                    <Text style={styles.socialButtonText}>Instagram</Text>
+                    <Ionicons name="logo-instagram" size={20} color="#FFFFFF" />
+                    <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Instagram</Text>
                   </TouchableOpacity>
                 )}
                 {lawyer.facebook && (
                   <TouchableOpacity 
-                    style={styles.socialButton} 
+                    style={[styles.socialButton, { backgroundColor: '#1877F2' }]} 
                     onPress={() => Linking.openURL(lawyer.facebook)}
                   >
-                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
-                    <Text style={styles.socialButtonText}>Facebook</Text>
+                    <Ionicons name="logo-facebook" size={20} color="#FFFFFF" />
+                    <Text style={[styles.socialButtonText, { color: '#FFFFFF' }]}>Facebook</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -315,13 +315,15 @@ const styles = StyleSheet.create({
   socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
     gap: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   socialButtonText: {
     fontFamily: 'Outfit_600SemiBold',
