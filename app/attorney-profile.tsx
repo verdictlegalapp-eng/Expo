@@ -29,9 +29,9 @@ export default function AttorneyProfile() {
         location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
       });
       
-      // Check badges from lawyerProfile
+      // Check badges and isVerified from lawyerProfile
       const badges = user.lawyerProfile?.badges;
-      const isVerified = Array.isArray(badges) && badges.some((b: string) => b.toLowerCase() === 'verified');
+      const isVerified = user.lawyerProfile?.isVerified || (Array.isArray(badges) && badges.some((b: string) => b.toLowerCase() === 'verified'));
       setLicenseVerified(isVerified);
     }).catch(console.error);
   }, []);

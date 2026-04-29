@@ -59,6 +59,7 @@ export async function fetchLawyers(filters: {
     location: lawyer.location || `${lawyer.city}, ${lawyer.state}`,
     bio: lawyer.bio || lawyer.description || '', // Check for description as well just in case
     badges: lawyer.badges || [],
+    isVerified: !!lawyer.isVerified,
     image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
     rating: lawyer.rating || 0,
   }));
@@ -85,6 +86,7 @@ export async function fetchLawyerById(id: string): Promise<any> {
     location: lawyer.location || `${lawyer.city}, ${lawyer.state}`,
     bio: lawyer.bio || '',
     badges: lawyer.badges || [],
+    isVerified: !!lawyer.isVerified,
     image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
     rating: lawyer.rating || 0,
   };

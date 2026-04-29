@@ -80,8 +80,15 @@ export default function LawyerDetail() {
           <Text style={styles.location}>{lawyer.location}</Text>
 
           <View style={styles.badges}>
+            {lawyer.isVerified && (
+              <View style={[styles.badge, styles.verifiedBadge]}>
+                <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={[styles.badgeText, styles.verifiedBadgeText]}>Verified</Text>
+              </View>
+            )}
             {(lawyer.badges || []).map((badge: string, idx: number) => {
               const isVerified = badge.toLowerCase() === 'verified';
+              if (isVerified && lawyer.isVerified) return null; // Already shown
               return (
                 <View key={idx} style={[styles.badge, isVerified && styles.verifiedBadge]}>
                   {isVerified && <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />}
