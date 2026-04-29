@@ -60,7 +60,7 @@ export async function fetchLawyers(filters: {
     bio: lawyer.bio || lawyer.description || '', // Check for description as well just in case
     badges: lawyer.badges || [],
     isVerified: !!lawyer.isVerified,
-    image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
+    image: lawyer.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(lawyer.user?.name || 'A')}&background=0D8ABC&color=fff`,
     rating: lawyer.rating || 0,
   }));
   return mergeBadgesAndFilterSuspended(mapped);
@@ -87,7 +87,7 @@ export async function fetchLawyerById(id: string): Promise<any> {
     bio: lawyer.bio || '',
     badges: lawyer.badges || [],
     isVerified: !!lawyer.isVerified,
-    image: lawyer.user?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800',
+    image: lawyer.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(lawyer.user?.name || 'A')}&background=0D8ABC&color=fff`,
     rating: lawyer.rating || 0,
   };
   const [merged] = await mergeBadgesAndFilterSuspended([mapped]);

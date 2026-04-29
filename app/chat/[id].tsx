@@ -303,7 +303,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
           <View style={styles.headerUser}>
             <Image 
-              source={{ uri: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150' }} 
+              source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerName || 'U')}&background=0D8ABC&color=fff` }} 
               style={styles.avatar} 
             />
             <View style={styles.headerInfo}>

@@ -101,7 +101,7 @@ export default function AttorneyProfile() {
       <View style={styles.profileHeader}>
         <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
           <Image 
-            source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
+            source={{ uri: userData?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.name || 'A')}&background=0D8ABC&color=fff` }} 
             style={styles.avatar} 
           />
           <View style={styles.editAvatarBadge}>
@@ -187,7 +187,7 @@ export default function AttorneyProfile() {
         <ScrollView style={styles.content}>
           <View style={styles.profileHeader}>
             <Image 
-              source={{ uri: userData?.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200' }} 
+              source={{ uri: userData?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.name || 'A')}&background=0D8ABC&color=fff` }} 
               style={styles.avatar} 
             />
             <View style={styles.nameRow}>
