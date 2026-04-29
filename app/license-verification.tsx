@@ -47,8 +47,15 @@ export default function LicenseVerification() {
       setPageLoading(true);
       const user = await fetchCurrentUser();
       setCurrentUser(user);
+      
       const statusData = await fetchVerificationStatus(user.id);
-      setVerificationStatus(statusData.status);
+      
+      // Check if official isVerified flag is true OR if request is approved
+      if (user.lawyerProfile?.isVerified || statusData.status === 'approved') {
+        setVerificationStatus('approved');
+      } else {
+        setVerificationStatus(statusData.status);
+      }
     } catch (e) {
       console.error('Failed to load status:', e);
     } finally {
