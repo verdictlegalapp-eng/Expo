@@ -28,13 +28,11 @@ export default function AttorneyProfile() {
         bio: user.lawyerProfile?.bio || '',
         location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
       });
-      fetchBadgeMap()
-        .then((map) => {
-          const badges = map[String(user.id)] || [];
-          const isVerified = badges.some(b => b.toLowerCase() === 'verified');
-          setLicenseVerified(isVerified);
-        })
-        .catch(() => setLicenseVerified(false));
+      
+      // Check badges from lawyerProfile
+      const badges = user.lawyerProfile?.badges || [];
+      const isVerified = badges.some((b: string) => b.toLowerCase() === 'verified');
+      setLicenseVerified(isVerified);
     }).catch(console.error);
   }, []);
 
