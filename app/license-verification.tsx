@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,55 +16,87 @@ import { useRouter, Stack } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchCurrentUser } from '../lib/authApi';
+import { 
+  fetchVerificationStatus, 
+  submitPhysicalVerificationRequest, 
+  type VerificationUiStatus 
+} from '../lib/servicesApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function LicenseVerification() {
   const router = useRouter();
   const [barId, setBarId] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [lawFirm, setLawFirm] = useState('');
   const [selectedState, setSelectedState] = useState<'CA' | 'TX'>('TX');
-  const [status, setStatus] = useState<'unverified' | 'verifying' | 'success' | 'failed'>('unverified');
+  
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Input, 2: Verifying, 3: Success
+  const [pageLoading, setPageLoading] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState<VerificationUiStatus>('none');
+  
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const handleVerify = async () => {
-    if (!barId.trim()) {
-      Alert.alert('Missing Bar ID', 'Please enter your state bar number to continue.');
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const loadStatus = async () => {
+    try {
+      setPageLoading(true);
+      const user = await fetchCurrentUser();
+      setCurrentUser(user);
+      const statusData = await fetchVerificationStatus(user.id);
+      setVerificationStatus(statusData.status);
+    } catch (e) {
+      console.error('Failed to load status:', e);
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!barId.trim() || !firstName.trim() || !lastName.trim() || !lawFirm.trim()) {
+      Alert.alert('Missing Details', 'Please enter your Name, Last Name, Bar ID, and Law Firm to continue.');
       return;
     }
 
-    setLoading(true);
-    setStatus('verifying');
-    setStep(2);
+    if (!currentUser) return;
 
+    setLoading(true);
     try {
-      // Simulate real-time progress for better UX
-      const response = await fetch(`${API_URL}/api/lawyers/verify-license`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: selectedState, barNumber: barId.trim() })
+      await submitPhysicalVerificationRequest({
+        userId: currentUser.id,
+        name: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
+        email: currentUser.email,
+        barId: barId.trim(),
+        state: selectedState,
+        lawFirm: lawFirm.trim()
       });
       
-      const result = await response.json();
-      
-      if (response.ok && result.data && result.data.verified) {
-        setStatus('success');
-        setStep(3);
-      } else {
-        setStatus('failed');
-        setStep(1);
-        Alert.alert('Verification Failed', result.message || 'We could not find a match for this Bar ID in the state registry.');
-      }
-    } catch (error) {
+      setVerificationStatus('pending');
+      Alert.alert(
+        'Request Submitted', 
+        'Your verification request has been sent to the admin. We will manually verify your status with the state bar and update your profile.'
+      );
+    } catch (error: any) {
       console.error(error);
-      setStatus('failed');
-      setStep(1);
-      Alert.alert('Connection Error', 'Could not reach the verification server. Please check your internet.');
+      Alert.alert('Submission Failed', error?.message || 'Could not send your request. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (pageLoading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={Colors.electricBlue} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -81,25 +113,77 @@ export default function LicenseVerification() {
       }} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${(step / 3) * 100}%` }]} />
-          </View>
-          <View style={styles.stepLabels}>
-            <Text style={[styles.stepLabel, step >= 1 && styles.activeStepLabel]}>Details</Text>
-            <Text style={[styles.stepLabel, step >= 2 && styles.activeStepLabel]}>Checking</Text>
-            <Text style={[styles.stepLabel, step >= 3 && styles.activeStepLabel]}>Verified</Text>
+        {/* Status Header */}
+        <View style={styles.statusBox}>
+          <View style={[
+            styles.statusBadge, 
+            verificationStatus === 'approved' && { backgroundColor: '#DCFCE7' },
+            verificationStatus === 'pending' && { backgroundColor: '#FEF9C3' },
+            verificationStatus === 'rejected' && { backgroundColor: '#FEE2E2' },
+          ]}>
+            <Ionicons 
+              name={verificationStatus === 'approved' ? "shield-checkmark" : (verificationStatus === 'pending' ? "time" : "shield-outline")} 
+              size={20} 
+              color={verificationStatus === 'approved' ? "#10B981" : (verificationStatus === 'pending' ? "#CA8A04" : "#64748B")} 
+            />
+            <Text style={[
+              styles.statusText,
+              verificationStatus === 'approved' && { color: "#10B981" },
+              verificationStatus === 'pending' && { color: "#CA8A04" },
+            ]}>
+              {verificationStatus === 'approved' ? 'Verified Attorney' : (verificationStatus === 'pending' ? 'Verification Pending' : 'Unverified Profile')}
+            </Text>
           </View>
         </View>
 
         <View style={styles.header}>
-          <Text style={styles.title}>Official Verification</Text>
-          <Text style={styles.subtitle}>Enter your State Bar number. We will instantly verify your credentials with the Texas Bar registry.</Text>
+          <Text style={styles.title}>Submit Credentials</Text>
+          <Text style={styles.subtitle}>Enter your professional details. Our administrators will manually verify your license with the state bar registry.</Text>
         </View>
 
-        {step < 3 ? (
+        {verificationStatus === 'none' || verificationStatus === 'rejected' ? (
           <View style={styles.formCard}>
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
+                <Text style={styles.label}>FIRST NAME</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput 
+                    style={styles.input}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="John"
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>LAST NAME</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput 
+                    style={styles.input}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Doe"
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>LAW FIRM NAME</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="business" size={18} color={Colors.electricBlue} style={styles.inputIcon} />
+                <TextInput 
+                  style={styles.input}
+                  value={lawFirm}
+                  onChangeText={setLawFirm}
+                  placeholder="e.g. Smith & Associates"
+                  editable={!loading}
+                />
+              </View>
+            </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>STATE BAR NUMBER</Text>
               <View style={styles.inputWrapper}>
@@ -137,23 +221,39 @@ export default function LicenseVerification() {
 
             <TouchableOpacity 
               style={[styles.submitButton, loading && { opacity: 0.7 }]} 
-              onPress={handleVerify}
+              onPress={handleSubmitRequest}
               disabled={loading}
             >
               {loading ? (
                 <View style={styles.loaderRow}>
                   <ActivityIndicator color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Searching Registry...</Text>
+                  <Text style={styles.submitButtonText}>Sending Request...</Text>
                 </View>
               ) : (
-                <Text style={styles.submitButtonText}>Verify License Now</Text>
+                <Text style={styles.submitButtonText}>Submit for Verification</Text>
               )}
             </TouchableOpacity>
 
             <View style={styles.hintBox}>
-              <Ionicons name="information-circle" size={16} color="#64748B" />
-              <Text style={styles.hintText}>No documents required. We use live scraping to confirm your status instantly.</Text>
+              <Ionicons name="shield-checkmark" size={16} color="#64748B" />
+              <Text style={styles.hintText}>Your data is securely sent to our administrators for manual validation.</Text>
             </View>
+          </View>
+        ) : verificationStatus === 'pending' ? (
+          <View style={styles.pendingCard}>
+            <View style={styles.pendingIconCircle}>
+              <Ionicons name="time" size={48} color="#CA8A04" />
+            </View>
+            <Text style={styles.successTitle}>Review in Progress</Text>
+            <Text style={styles.successSubtitle}>
+              Our administrators are currently verifying your credentials. You will receive a notification and your badge once the review is complete.
+            </Text>
+            <TouchableOpacity 
+              style={styles.doneButton} 
+              onPress={() => router.replace('/attorney-profile')}
+            >
+              <Text style={styles.doneButtonText}>Return to Profile</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.successCard}>
@@ -165,13 +265,13 @@ export default function LicenseVerification() {
             </LinearGradient>
             <Text style={styles.successTitle}>Identity Verified!</Text>
             <Text style={styles.successSubtitle}>
-              We found your license in the {selectedState === 'TX' ? 'Texas' : 'California'} Bar registry. Your profile now displays the Verified Badge.
+              Congratulations! Your professional license has been verified. You now have a Verified Badge on your profile.
             </Text>
             <TouchableOpacity 
               style={styles.doneButton} 
               onPress={() => router.replace('/attorney-profile')}
             >
-              <Text style={styles.doneButtonText}>Return to Profile</Text>
+              <Text style={styles.doneButtonText}>Go to My Profile</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -185,34 +285,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContent: {
     padding: 24,
   },
-  progressContainer: {
-    marginBottom: 40,
+  statusBox: {
+    marginBottom: 20,
+    alignItems: 'flex-start',
   },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.electricBlue,
-  },
-  stepLabels: {
+  statusBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 8,
   },
-  stepLabel: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  activeStepLabel: {
-    color: Colors.electricBlue,
+  statusText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 13,
+    color: '#64748B',
   },
   header: {
     marginBottom: 32,
@@ -235,6 +331,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+  },
+  row: {
+    flexDirection: 'row',
   },
   inputGroup: {
     marginBottom: 24,
@@ -332,6 +431,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DCFCE7',
   },
+  pendingCard: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
   successIconCircle: {
     width: 90,
     height: 90,
@@ -340,22 +447,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  pendingIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#FEF9C3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   successTitle: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 26,
-    color: '#065F46',
+    color: Colors.navy,
     marginBottom: 12,
   },
   successSubtitle: {
     fontFamily: 'Outfit_400Regular',
     fontSize: 16,
-    color: '#047857',
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
   doneButton: {
-    backgroundColor: '#065F46',
+    backgroundColor: Colors.navy,
     paddingHorizontal: 32,
     paddingVertical: 18,
     borderRadius: 30,

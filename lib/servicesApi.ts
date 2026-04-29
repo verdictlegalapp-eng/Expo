@@ -35,9 +35,12 @@ export async function fetchVerificationStatus(userId: number | string): Promise<
 export async function submitPhysicalVerificationRequest(payload: {
   userId: number | string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   barId: string;
   state: string;
+  lawFirm?: string;
   notes?: string;
 }): Promise<void> {
   const base = getServicesUrl();
