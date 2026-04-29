@@ -86,7 +86,7 @@ export default function LawyerDetail() {
                 <Text style={[styles.badgeText, styles.verifiedBadgeText]}>Verified</Text>
               </View>
             )}
-            {(lawyer.badges || []).map((badge: string, idx: number) => {
+            {Array.isArray(lawyer.badges) && lawyer.badges.map((badge: string, idx: number) => {
               const isVerified = badge.toLowerCase() === 'verified';
               if (isVerified && lawyer.isVerified) return null; // Already shown
               return (
