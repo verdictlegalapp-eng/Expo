@@ -16,7 +16,10 @@ export default function AttorneyProfile() {
     practice: '',
     experience: '',
     bio: '',
-    location: ''
+    location: '',
+    facebook: '',
+    instagram: '',
+    linkedin: ''
   });
   const [licenseVerified, setLicenseVerified] = React.useState(false);
 
@@ -28,7 +31,10 @@ export default function AttorneyProfile() {
         practice: user.lawyerProfile?.practice || '',
         experience: user.lawyerProfile?.experience || '',
         bio: user.lawyerProfile?.bio || '',
-        location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`
+        location: user.lawyerProfile?.location || `${user.city || ''}, ${user.state || ''}`,
+        facebook: user.lawyerProfile?.facebook || '',
+        instagram: user.lawyerProfile?.instagram || '',
+        linkedin: user.lawyerProfile?.linkedin || ''
       });
       
       // Check badges and isVerified from lawyerProfile
@@ -86,6 +92,9 @@ export default function AttorneyProfile() {
         bio: profile.bio,
         practice: profile.practice,
         experience: profile.experience,
+        facebook: profile.facebook,
+        instagram: profile.instagram,
+        linkedin: profile.linkedin,
       });
       
       const updated = await fetchCurrentUser();
@@ -144,6 +153,33 @@ export default function AttorneyProfile() {
           onChangeText={t => setProfile({...profile, location: t})}
           placeholder="City, State"
         />
+
+        <View style={{ marginTop: 20 }}>
+          <Text style={[styles.label, { color: Colors.electricBlue }]}>Social Media Links</Text>
+          <Text style={[styles.label, { marginTop: 8 }]}>LinkedIn URL</Text>
+          <TextInput 
+            style={styles.input}
+            value={profile.linkedin}
+            onChangeText={t => setProfile({...profile, linkedin: t})}
+            placeholder="https://linkedin.com/in/..."
+          />
+          
+          <Text style={styles.label}>Instagram URL</Text>
+          <TextInput 
+            style={styles.input}
+            value={profile.instagram}
+            onChangeText={t => setProfile({...profile, instagram: t})}
+            placeholder="https://instagram.com/..."
+          />
+
+          <Text style={styles.label}>Facebook URL</Text>
+          <TextInput 
+            style={styles.input}
+            value={profile.facebook}
+            onChangeText={t => setProfile({...profile, facebook: t})}
+            placeholder="https://facebook.com/..."
+          />
+        </View>
 
         <Text style={styles.label}>Bio</Text>
         <TextInput 

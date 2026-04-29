@@ -128,7 +128,12 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
             <View style={styles.mainInfo}>
               <View style={styles.titleRow}>
                 <Text style={styles.name} numberOfLines={1}>{lawyer.name}</Text>
-                <TouchableOpacity onPress={() => router.push(`/lawyer/${lawyer.id}`)} hitSlop={15}>
+                <TouchableOpacity 
+                  onPress={() => router.push(`/lawyer/${lawyer.id}`)} 
+                  hitSlop={15}
+                  style={styles.detailsBtn}
+                >
+                  <Text style={styles.detailsText}>Details</Text>
                   <Ionicons name="information-circle" size={26} color="white" />
                 </TouchableOpacity>
               </View>
@@ -249,6 +254,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 16,
     color: '#CBD5E1',
+  },
+  detailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  detailsText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   highlightsRow: {
     flexDirection: 'row',

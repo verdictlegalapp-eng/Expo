@@ -12,6 +12,9 @@ export type RegisterProfile = {
   specialization?: string;
   barId?: string;
   experience?: string;
+  facebook?: string;
+  instagram?: string;
+  linkedin?: string;
 };
 
 export type VerifyResponse = {
@@ -188,6 +191,9 @@ export async function updateProfile(data: {
   bio?: string;
   practice?: string;
   experience?: string;
+  facebook?: string;
+  instagram?: string;
+  linkedin?: string;
 }): Promise<void> {
   const base = getBaseUrl();
   const token = await getSessionToken();

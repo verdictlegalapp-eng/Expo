@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { fetchLawyerById } from '../../lib/lawyerApi';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,6 +104,41 @@ export default function LawyerDetail() {
             <Text style={styles.sectionTitle}>About</Text>
             <Text style={styles.bio}>{lawyer.bio}</Text>
           </View>
+          
+          {(lawyer.facebook || lawyer.instagram || lawyer.linkedin) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Connect</Text>
+              <View style={styles.socialRow}>
+                {lawyer.linkedin && (
+                  <TouchableOpacity 
+                    style={styles.socialButton} 
+                    onPress={() => Linking.openURL(lawyer.linkedin)}
+                  >
+                    <Ionicons name="logo-linkedin" size={24} color="#0077B5" />
+                    <Text style={styles.socialButtonText}>LinkedIn</Text>
+                  </TouchableOpacity>
+                )}
+                {lawyer.instagram && (
+                  <TouchableOpacity 
+                    style={styles.socialButton} 
+                    onPress={() => Linking.openURL(lawyer.instagram)}
+                  >
+                    <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+                    <Text style={styles.socialButtonText}>Instagram</Text>
+                  </TouchableOpacity>
+                )}
+                {lawyer.facebook && (
+                  <TouchableOpacity 
+                    style={styles.socialButton} 
+                    onPress={() => Linking.openURL(lawyer.facebook)}
+                  >
+                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                    <Text style={styles.socialButtonText}>Facebook</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
 
           <View style={styles.section}>
             <Text style={styles.disclaimer}>
@@ -270,7 +305,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_400Regular',
     fontSize: 16,
     color: '#475569',
-    lineHeight: 26,
+    lineHeight: 24,
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  socialButtonText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 14,
+    color: '#1E293B',
   },
   disclaimer: {
     fontFamily: 'Outfit_400Regular',
