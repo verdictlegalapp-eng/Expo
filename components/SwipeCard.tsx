@@ -137,9 +137,18 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
 
             {/* Highlights Row */}
             <View style={styles.highlightsRow}>
+              <LinearGradient
+                colors={['#3B82F6', '#273951']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.highlightBadge}
+              >
+                <Ionicons name="location" size={12} color="#FFFFFF" />
+                <Text style={styles.highlightText}>{lawyer.location}</Text>
+              </LinearGradient>
               <View style={styles.expBadge}>
-                <Ionicons name="time-outline" size={12} color="#3B82F6" />
-                <Text style={styles.expText}>{lawyer.experience || 'Experienced Attorney'}</Text>
+                <Ionicons name="ribbon" size={12} color="#3B82F6" />
+                <Text style={styles.expText}>{lawyer.experience || 'Experienced'}</Text>
               </View>
               {lawyer.isVerified || (Array.isArray(lawyer.badges) && lawyer.badges.some(b => b.toLowerCase() === 'verified')) ? (
                 <LinearGradient
@@ -152,10 +161,6 @@ export default function SwipeCard({ lawyer, onSwipeLeft, onSwipeRight }: SwipeCa
                   <Text style={styles.verifiedText}>Verified</Text>
                 </LinearGradient>
               ) : null}
-            </View>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-sharp" size={14} color="#64748B" />
-              <Text style={styles.locationText}>{lawyer.location}</Text>
             </View>
 
             {/* Bio Snippet */}
