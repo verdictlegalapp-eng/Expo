@@ -31,8 +31,6 @@ export default function LoginScreen() {
   const { userRole, setRole } = useUser();
   
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [showConsent, setShowConsent] = useState(false);
@@ -163,23 +161,6 @@ export default function LoginScreen() {
                     />
                   </View>
 
-                  <Text style={[styles.label, { marginTop: 20 }]}>Password</Text>
-                  <View style={styles.inputBox}>
-                    <TextInput
-                      secureTextEntry={!showPassword}
-                      style={styles.input}
-                      placeholder="••••••••"
-                      placeholderTextColor="rgba(255,255,255,0.2)"
-                      value={password}
-                      onChangeText={setPassword}
-                    />
-                    <TouchableOpacity 
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.eyeBtn}
-                    >
-                      <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="rgba(255,255,255,0.4)" />
-                    </TouchableOpacity>
-                  </View>
 
                   <TouchableOpacity
                      style={styles.getStartedBtn}
@@ -203,11 +184,8 @@ export default function LoginScreen() {
                   <View style={styles.optionsRow}>
                     <View style={styles.rememberMe}>
                       <View style={styles.checkbox} />
-                      <Text style={styles.rememberText}>Remember me</Text>
+                      <Text style={styles.rememberText}>Keep me signed in</Text>
                     </View>
-                    <TouchableOpacity>
-                      <Text style={styles.forgotText}>Forgot password?</Text>
-                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.signUpRow}>
@@ -286,7 +264,6 @@ const styles = StyleSheet.create({
   inputBox: { height: 56, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   inputBoxError: { borderColor: '#EF4444' },
   input: { flex: 1, fontSize: 16, fontFamily: 'Outfit_400Regular', color: Colors.white },
-  eyeBtn: { padding: 8 },
   getStartedBtn: { width: '100%', height: 56, borderRadius: 28, overflow: 'hidden', marginTop: 30 },
   gradientBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: 'Outfit_700Bold', fontSize: 16, color: Colors.deepBlue },
@@ -294,8 +271,7 @@ const styles = StyleSheet.create({
   rememberMe: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   rememberText: { fontFamily: 'Outfit_400Regular', fontSize: 14, color: Colors.subtext },
-  forgotText: { fontFamily: 'Outfit_600SemiBold', fontSize: 14, color: Colors.gold },
-  signUpRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 40 },
+  signUpRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 24 },
   noAccountText: { fontFamily: 'Outfit_400Regular', fontSize: 15, color: Colors.subtext },
   signUpLink: { fontFamily: 'Outfit_700Bold', fontSize: 15, color: Colors.gold },
 });
