@@ -53,7 +53,7 @@ export default function FloatingGlassNav() {
   const isAttorney = userRole === 'attorney';
 
   const navItems = [
-    { id: 'swipe', label: 'Swipe', icon: 'gavel', activeIcon: 'gavel', path: '/discovery', type: 'MCI' },
+    ...(isAttorney ? [] : [{ id: 'swipe', label: 'Swipe', icon: 'gavel', activeIcon: 'gavel', path: '/discovery', type: 'MCI' }]),
     { id: 'explore', label: 'Explore', icon: 'compass-outline', activeIcon: 'compass', path: '/explore', type: 'Ionicons' },
     isAttorney 
       ? { id: 'license', label: 'License', icon: 'ribbon-outline', activeIcon: 'ribbon', path: '/license-verification', type: 'Ionicons' }
