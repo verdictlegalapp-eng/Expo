@@ -9,16 +9,20 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  StatusBar,
+  Image
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import { Colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchCurrentUser } from '../lib/authApi';
 import { 
   fetchVerificationStatus, 
   submitPhysicalVerificationRequest, 
+  removeVerification,
   type VerificationUiStatus 
 } from '../lib/servicesApi';
 
@@ -35,22 +39,36 @@ export default function LicenseVerification() {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState<VerificationUiStatus>('none');
-  
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  const pulseAnim = useSharedValue(0.2);
 
   useEffect(() => {
     loadStatus();
+    pulseAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.2, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
   }, []);
+
+  const animatedPulseStyle = useAnimatedStyle(() => {
+    return {
+      opacity: pulseAnim.value,
+      transform: [{ scale: 0.95 + (pulseAnim.value * 0.05) }]
+    };
+  });
 
   const loadStatus = async () => {
     try {
       setPageLoading(true);
       const user = await fetchCurrentUser();
       setCurrentUser(user);
-      
       const statusData = await fetchVerificationStatus(user.id);
       
-      // Check if official isVerified flag is true OR if request is approved
       if (user.lawyerProfile?.isVerified || statusData.status === 'approved') {
         setVerificationStatus('approved');
       } else {
@@ -65,12 +83,9 @@ export default function LicenseVerification() {
 
   const handleSubmitRequest = async () => {
     if (!barId.trim() || !firstName.trim() || !lastName.trim() || !lawFirm.trim()) {
-      Alert.alert('Missing Details', 'Please enter your Name, Last Name, Bar ID, and Law Firm to continue.');
+      Alert.alert('Missing Details', 'Please fill all fields to continue.');
       return;
     }
-
-    if (!currentUser) return;
-
     setLoading(true);
     try {
       await submitPhysicalVerificationRequest({
@@ -83,409 +98,281 @@ export default function LicenseVerification() {
         state: selectedState,
         lawFirm: lawFirm.trim()
       });
-      
       setVerificationStatus('pending');
-      Alert.alert(
-        'Request Submitted', 
-        'Your verification request has been sent to the admin. We will manually verify your status with the state bar and update your profile.'
-      );
+      Alert.alert('Submitted', 'Verification request sent.');
     } catch (error: any) {
-      console.error(error);
-      Alert.alert('Submission Failed', error?.message || 'Could not send your request. Please try again.');
+      Alert.alert('Error', error?.message || 'Could not send request.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRemoveVerification = () => {
+    Alert.alert(
+      'Remove Verification',
+      'Are you sure you want to remove your verification? You will lose your verified badge.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await removeVerification(currentUser.id);
+              setVerificationStatus('none');
+              Alert.alert('Success', 'Verification removed.');
+            } catch (e) {
+              Alert.alert('Error', 'Could not remove verification.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (pageLoading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={Colors.electricBlue} />
+        <ActivityIndicator size="large" color={Colors.gold} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ 
-        title: 'License Verification',
-        headerShown: true,
-        headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 10 }}>
-            <Ionicons name="arrow-back" size={24} color={Colors.navy} />
-          </TouchableOpacity>
-        ),
-        headerTitleStyle: { fontFamily: 'Outfit_700Bold', fontSize: 20 },
-        headerShadowVisible: false,
-      }} />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#020617' }]} />
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.25)', 'rgba(212, 175, 55, 0.05)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.4, y: 0.6 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.15)', 'transparent']}
+        start={{ x: 0.8, y: -0.1 }}
+        end={{ x: 0, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Status Header */}
-        <View style={styles.statusBox}>
-          <View style={[
-            styles.statusBadge, 
-            verificationStatus === 'approved' && { backgroundColor: '#DCFCE7' },
-            verificationStatus === 'pending' && { backgroundColor: '#FEF9C3' },
-            verificationStatus === 'rejected' && { backgroundColor: '#FEE2E2' },
-          ]}>
-            <Ionicons 
-              name={verificationStatus === 'approved' ? "shield-checkmark" : (verificationStatus === 'pending' ? "time" : "shield-outline")} 
-              size={20} 
-              color={verificationStatus === 'approved' ? "#10B981" : (verificationStatus === 'pending' ? "#CA8A04" : "#64748B")} 
-            />
-            <Text style={[
-              styles.statusText,
-              verificationStatus === 'approved' && { color: "#10B981" },
-              verificationStatus === 'pending' && { color: "#CA8A04" },
-            ]}>
-              {verificationStatus === 'approved' ? 'Verified Attorney' : (verificationStatus === 'pending' ? 'Verification Pending' : 'Unverified Profile')}
-            </Text>
-          </View>
-        </View>
-
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Submit Credentials</Text>
-          <Text style={styles.subtitle}>Enter your professional details. Our administrators will manually verify your license with the state bar registry.</Text>
+          <View style={{ width: 44 }} />
+          <Text style={styles.headerTitle}>Verification Status</Text>
+          <View style={{ width: 44 }} />
         </View>
 
-        {verificationStatus === 'none' || verificationStatus === 'rejected' ? (
-          <View style={styles.formCard}>
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                <Text style={styles.label}>FIRST NAME</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput 
-                    style={styles.input}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholder="John"
-                    editable={!loading}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
+          {verificationStatus === 'approved' ? (
+            <View style={styles.successWrapper}>
+              {/* Phone Icon Circle with Glow */}
+              <View style={styles.glowContainer}>
+                <Animated.View style={[styles.glowCircle, animatedPulseStyle]}>
+                  <LinearGradient
+                    colors={['rgba(212, 175, 55, 0.4)', 'transparent']}
+                    style={StyleSheet.absoluteFill}
                   />
+                </Animated.View>
+                <View style={styles.phoneCircle}>
+                  <View style={styles.phoneInner}>
+                    <MaterialCommunityIcons name="cellphone" size={50} color={Colors.gold} />
+                    <View style={styles.checkBadge}>
+                      <Ionicons name="checkmark" size={14} color={Colors.deepBlue} />
+                    </View>
+                  </View>
                 </View>
               </View>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.label}>LAST NAME</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput 
-                    style={styles.input}
-                    value={lastName}
-                    onChangeText={setLastName}
-                    placeholder="Doe"
-                    editable={!loading}
-                  />
-                </View>
-              </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>LAW FIRM NAME</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="business" size={18} color={Colors.electricBlue} style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input}
-                  value={lawFirm}
-                  onChangeText={setLawFirm}
-                  placeholder="e.g. Smith & Associates"
-                  editable={!loading}
+              <Text style={styles.thankYouTitle}>Thank you, {currentUser?.name?.split(' ')[0] || 'Attorney'}!</Text>
+              <Text style={styles.thankYouSub}>You're a verified attorney now! Your profile has been updated with the systems.</Text>
+
+              {/* Details Card with subtle top gradient */}
+              <View style={styles.detailsCard}>
+                <LinearGradient
+                   colors={['rgba(212, 175, 55, 0.05)', 'transparent']}
+                   style={StyleSheet.absoluteFill}
+                   start={{ x: 0, y: 0 }}
+                   end={{ x: 0, y: 0.2 }}
                 />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>STATE BAR NUMBER</Text>
-              <View style={styles.inputWrapper}>
-                <FontAwesome5 name="id-card" size={18} color={Colors.electricBlue} style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input}
-                  value={barId}
-                  onChangeText={setBarId}
-                  placeholder="e.g. 240XXXXX"
-                  keyboardType="numeric"
-                  editable={!loading}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>ISSUING STATE</Text>
-              <View style={styles.stateToggleContainer}>
-                <TouchableOpacity 
-                  style={[styles.stateToggleBtn, selectedState === 'TX' && styles.stateToggleActive]}
-                  onPress={() => setSelectedState('TX')}
-                  disabled={loading}
-                >
-                  <Text style={[styles.stateToggleText, selectedState === 'TX' && styles.stateToggleTextActive]}>Texas</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.stateToggleBtn, selectedState === 'CA' && styles.stateToggleActive]}
-                  onPress={() => setSelectedState('CA')}
-                  disabled={loading}
-                >
-                  <Text style={[styles.stateToggleText, selectedState === 'CA' && styles.stateToggleTextActive]}>California</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.submitButton, loading && { opacity: 0.7 }]} 
-              onPress={handleSubmitRequest}
-              disabled={loading}
-            >
-              {loading ? (
-                <View style={styles.loaderRow}>
-                  <ActivityIndicator color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Sending Request...</Text>
+                <Text style={styles.cardTitle}>Verification details</Text>
+                
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Verification ID</Text>
+                  <Text style={styles.detailValue}>#VRF{currentUser?.id?.slice(-8).toUpperCase()}</Text>
                 </View>
-              ) : (
-                <Text style={styles.submitButtonText}>Submit for Verification</Text>
-              )}
-            </TouchableOpacity>
+                
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Verified date</Text>
+                  <Text style={styles.detailValue}>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+                </View>
 
-            <View style={styles.hintBox}>
-              <Ionicons name="shield-checkmark" size={16} color="#64748B" />
-              <Text style={styles.hintText}>Your data is securely sent to our administrators for manual validation.</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>State Registry</Text>
+                  <Text style={styles.detailValue}>{currentUser?.lawyerProfile?.state || 'Texas'}</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <Text style={styles.cardTitle}>Details</Text>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text style={[styles.detailValue, { color: '#10B981', fontWeight: 'bold' }]}>ACTIVE</Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Bar ID</Text>
+                  <Text style={styles.detailValue}>{currentUser?.lawyerProfile?.barId || 'Verified'}</Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Badge Type</Text>
+                  <Text style={styles.detailValue}>Premium Badge</Text>
+                </View>
+              </View>
+
+              <Text style={styles.footerNote}>
+                Note: if you need some help please contact customer services <Text style={styles.phoneLink}>006 502 022</Text>
+              </Text>
+
+              <TouchableOpacity style={styles.removeBtn} onPress={handleRemoveVerification}>
+                <Text style={styles.removeBtnText}>Remove Verification</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        ) : verificationStatus === 'pending' ? (
-          <View style={styles.pendingCard}>
-            <View style={styles.pendingIconCircle}>
-              <Ionicons name="time" size={48} color="#CA8A04" />
+          ) : verificationStatus === 'pending' ? (
+             <View style={styles.pendingWrapper}>
+                <View style={styles.glowContainer}>
+                  <Animated.View style={[styles.glowCircle, animatedPulseStyle]}>
+                    <LinearGradient
+                      colors={['rgba(212, 175, 55, 0.4)', 'transparent']}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                  <View style={styles.phoneCircle}>
+                      <View style={styles.phoneInner}>
+                          <MaterialCommunityIcons name="clock-outline" size={50} color={Colors.gold} />
+                      </View>
+                  </View>
+                </View>
+                <Text style={styles.thankYouTitle}>Review in Progress</Text>
+                <Text style={styles.thankYouSub}>We are currently manually verifying your license. This usually takes 24-48 hours.</Text>
+                <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
+                  <LinearGradient colors={Colors.goldGradient} style={styles.doneGradient}>
+                    <Text style={styles.doneBtnText}>Return to Profile</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+             </View>
+          ) : (
+            <View style={styles.unverifiedWrapper}>
+                <Text style={styles.formTitle}>Submit Credentials</Text>
+                <Text style={styles.formSub}>Our administrators will manually verify your license with the state bar registry.</Text>
+                
+                <View style={styles.formCard}>
+                  <View style={styles.row}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
+                      <Text style={styles.label}>FIRST NAME</Text>
+                      <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="John" placeholderTextColor="rgba(255,255,255,0.2)" />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.label}>LAST NAME</Text>
+                      <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Doe" placeholderTextColor="rgba(255,255,255,0.2)" />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>LAW FIRM NAME</Text>
+                    <TextInput style={styles.input} value={lawFirm} onChangeText={setLawFirm} placeholder="Smith & Associates" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>STATE BAR NUMBER</Text>
+                    <TextInput style={styles.input} value={barId} onChangeText={setBarId} placeholder="240XXXXX" keyboardType="numeric" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>ISSUING STATE</Text>
+                    <View style={styles.stateToggle}>
+                      <TouchableOpacity style={[styles.stateBtn, selectedState === 'TX' && styles.stateActive]} onPress={() => setSelectedState('TX')}>
+                        <Text style={[styles.stateText, selectedState === 'TX' && styles.stateTextActive]}>Texas</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.stateBtn, selectedState === 'CA' && styles.stateActive]} onPress={() => setSelectedState('CA')}>
+                        <Text style={[styles.stateText, selectedState === 'CA' && styles.stateTextActive]}>California</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitRequest} disabled={loading}>
+                    <LinearGradient colors={Colors.goldGradient} style={styles.submitGradient}>
+                      {loading ? <ActivityIndicator color={Colors.deepBlue} /> : <Text style={styles.submitText}>Submit for Verification</Text>}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
             </View>
-            <Text style={styles.successTitle}>Review in Progress</Text>
-            <Text style={styles.successSubtitle}>
-              Our administrators are currently verifying your credentials. You will receive a notification and your badge once the review is complete.
-            </Text>
-            <TouchableOpacity 
-              style={styles.doneButton} 
-              onPress={() => router.replace('/attorney-profile')}
-            >
-              <Text style={styles.doneButtonText}>Return to Profile</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.successCard}>
-            <LinearGradient
-              colors={['#10B981', '#059669']}
-              style={styles.successIconCircle}
-            >
-              <Ionicons name="checkmark-sharp" size={48} color="white" />
-            </LinearGradient>
-            <Text style={styles.successTitle}>Identity Verified!</Text>
-            <Text style={styles.successSubtitle}>
-              Congratulations! Your professional license has been verified. You now have a Verified Badge on your profile.
-            </Text>
-            <TouchableOpacity 
-              style={styles.doneButton} 
-              onPress={() => router.replace('/attorney-profile')}
-            >
-              <Text style={styles.doneButtonText}>Go to My Profile</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          )}
+
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    padding: 24,
-  },
-  statusBox: {
-    marginBottom: 20,
-    alignItems: 'flex-start',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    gap: 8,
-  },
-  statusText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 13,
-    color: '#64748B',
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 28,
-    color: Colors.navy,
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: '#64748B',
-    lineHeight: 24,
-  },
-  formCard: {
-    backgroundColor: '#F8FAFC',
-    padding: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 11,
-    color: '#64748B',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    height: 56,
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 18,
-    color: Colors.navy,
-  },
-  stateToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 4,
-  },
-  stateToggleBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  stateToggleActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  stateToggleText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 14,
-    color: '#64748B',
-  },
-  stateToggleTextActive: {
-    color: Colors.electricBlue,
-  },
-  submitButton: {
-    backgroundColor: Colors.navy,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: Colors.navy,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
-  },
-  loaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  submitButtonText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  hintBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingHorizontal: 8,
-  },
-  hintText: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 12,
-    color: '#64748B',
-    flex: 1,
-  },
-  successCard: {
-    alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-  },
-  pendingCard: {
-    alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-  },
-  successIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  pendingIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#FEF9C3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  successTitle: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 26,
-    color: Colors.navy,
-    marginBottom: 12,
-  },
-  successSubtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  doneButton: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: 32,
-    paddingVertical: 18,
-    borderRadius: 30,
-  },
-  doneButtonText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#020617' },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontFamily: 'Outfit_700Bold', fontSize: 18, color: Colors.white },
+  scrollContent: { padding: 24, paddingBottom: 60 },
+  
+  successWrapper: { alignItems: 'center' },
+  glowContainer: { width: 200, height: 200, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  glowCircle: { position: 'absolute', width: 200, height: 200, borderRadius: 100, overflow: 'hidden' },
+  phoneCircle: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(212, 175, 55, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.3)' },
+  phoneInner: { width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  checkBadge: { position: 'absolute', top: 35, right: 35, width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.gold, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#020617' },
+  
+  thankYouTitle: { fontFamily: 'Outfit_700Bold', fontSize: 24, color: Colors.white, marginBottom: 8, textAlign: 'center' },
+  thankYouSub: { fontFamily: 'Outfit_400Regular', fontSize: 15, color: 'rgba(255,255,255,0.5)', textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, marginBottom: 30 },
+  
+  detailsCard: { width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 30, overflow: 'hidden' },
+  cardTitle: { fontFamily: 'Outfit_700Bold', fontSize: 18, color: Colors.white, marginBottom: 20 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  detailLabel: { fontFamily: 'Outfit_400Regular', fontSize: 15, color: 'rgba(255,255,255,0.4)' },
+  detailValue: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: Colors.white },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 20, borderStyle: 'dashed', borderRadius: 1 },
+  
+  footerNote: { fontFamily: 'Outfit_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 20, paddingHorizontal: 10, marginBottom: 30 },
+  phoneLink: { color: Colors.gold, fontWeight: 'bold', textDecorationLine: 'underline' },
+  
+  removeBtn: { paddingVertical: 10 },
+  removeBtnText: { color: '#EF4444', fontFamily: 'Outfit_600SemiBold', fontSize: 14, textDecorationLine: 'underline' },
+
+  pendingWrapper: { alignItems: 'center', marginTop: 40 },
+  doneBtn: { width: '100%', height: 56, borderRadius: 28, overflow: 'hidden', marginTop: 30 },
+  doneGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  doneBtnText: { color: Colors.deepBlue, fontFamily: 'Outfit_700Bold', fontSize: 16 },
+
+  unverifiedWrapper: { marginTop: 10 },
+  formTitle: { fontFamily: 'Outfit_700Bold', fontSize: 28, color: Colors.white, marginBottom: 8 },
+  formSub: { fontFamily: 'Outfit_400Regular', fontSize: 16, color: 'rgba(255,255,255,0.4)', lineHeight: 24, marginBottom: 30 },
+  formCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 24, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  row: { flexDirection: 'row' },
+  inputGroup: { marginBottom: 20 },
+  label: { fontFamily: 'Outfit_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginBottom: 8 },
+  input: { height: 56, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, color: Colors.white, fontFamily: 'Outfit_400Regular', fontSize: 16 },
+  stateToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 4 },
+  stateBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
+  stateActive: { backgroundColor: Colors.gold },
+  stateText: { fontFamily: 'Outfit_600SemiBold', fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  stateTextActive: { color: Colors.deepBlue },
+  submitBtn: { marginTop: 12, height: 60, borderRadius: 30, overflow: 'hidden' },
+  submitGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  submitText: { fontFamily: 'Outfit_700Bold', fontSize: 16, color: Colors.deepBlue },
 });

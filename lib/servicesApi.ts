@@ -102,3 +102,15 @@ export async function registerPushToken(
     // non-fatal
   }
 }
+
+export async function removeVerification(userId: number | string): Promise<void> {
+  const base = getServicesUrl();
+  if (!base) return;
+  const res = await fetch(`${base}/api/verification/status/${encodeURIComponent(String(userId))}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to remove verification');
+  }
+}

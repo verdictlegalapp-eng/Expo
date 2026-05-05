@@ -231,3 +231,16 @@ export async function deleteAccount(): Promise<boolean> {
     return false;
   }
 }
+
+export async function fetchUserById(id: string): Promise<any> {
+  const base = getBaseUrl();
+  const token = await getSessionToken();
+  if (!base || !token) throw new Error('Not signed in');
+
+  const res = await fetch(`${base}/api/auth/user/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const body = (await res.json().catch(() => ({}))) as any;
+  if (!res.ok) throw new Error(body.error || 'User not found');
+  return body.data || body;
+}

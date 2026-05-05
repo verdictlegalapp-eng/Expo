@@ -13,12 +13,16 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { verifyEmailOtp, requestEmailOtp } from '../../lib/authApi';
+import { Colors } from '../../constants/Colors';
 
+const { width } = Dimensions.get('window');
 
 function sp(v: string | string[] | undefined): string {
   if (Array.isArray(v)) return v[0] ?? '';
@@ -28,8 +32,7 @@ function sp(v: string | string[] | undefined): string {
 export default function OTP() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const phoneDisplay = sp(params.phone);
-  const countryCode = sp(params.countryCode) || '+91';
+  const email = sp(params.email);
   const roleParam = sp(params.role);
 
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -37,16 +40,29 @@ export default function OTP() {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
 
-
   const handleTextChange = (text: string, index: number) => {
+    // Handle multi-character input (like pasting)
+    if (text.length > 1) {
+      const pasteData = text.replace(/\D/g, '').slice(0, 6).split('');
+      const newCode = [...code];
+      pasteData.forEach((char, i) => {
+        if (index + i < 6) newCode[index + i] = char;
+      });
+      setCode(newCode);
+      const nextIndex = Math.min(index + pasteData.length, 5);
+      inputs.current[nextIndex]?.focus();
+      return;
+    }
+
     const newCode = [...code];
     newCode[index] = text.replace(/\D/g, '').slice(0, 1);
     setCode(newCode);
 
-    if (text.length >= 1 && index < 5) {
+    if (text.length === 1 && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
+
 
   const handleKeyPress = (e: any, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && code[index] === '' && index > 0) {
@@ -65,17 +81,21 @@ export default function OTP() {
     city: sp(params.city) || undefined,
     specialization: sp(params.specialization) || undefined,
     barId: sp(params.barId) || undefined,
+    legalNeed: sp(params.legalNeed) || undefined,
   });
 
   const handleVerify = async () => {
     if (!isComplete) return;
     setBusy(true);
     try {
-      const email = sp(params.email);
       if (!email) throw new Error('Email is missing. Go back and re-enter.');
       
-      const codeStr = code.join('');
+      const codeStr = code.join('').trim();
+      if (codeStr.length !== 6) throw new Error('Please enter all 6 digits');
+
+      console.log(`[OTP] Verifying for ${email} with code ${codeStr}`);
       await verifyEmailOtp(email, codeStr, buildProfile());
+
       
       if (params.isLogin === 'true') {
         if (roleParam === 'attorney') {
@@ -97,9 +117,7 @@ export default function OTP() {
     }
   };
 
-
   const handleResend = async () => {
-    const email = sp(params.email);
     if (!email) {
       Alert.alert('Missing email', 'Go back to re-enter your email.');
       return;
@@ -118,204 +136,137 @@ export default function OTP() {
     }
   };
 
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.progressBarContainer}>
-        <LinearGradient
-          colors={['#3B82F6', '#273951']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.progressBar, { width: '66%' }]}
-        />
-      </View>
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView 
-            style={{ flex: 1 }} 
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.inner}>
-              <View>
-                <View style={styles.header}>
-                  <TouchableOpacity
-                    onPress={() => router.back()}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                  >
-                    <Ionicons name="arrow-back" size={28} color="#0F172A" />
-                  </TouchableOpacity>
-                  <Text style={styles.stepIndicator}>Step 2 of 3</Text>
-                </View>
-
-                <View style={styles.content}>
-                  <Text style={styles.title}>Verify email</Text>
-                  <Text style={styles.subtitle}>
-                    We sent a 6-digit code to{' '}
-                    <Text style={styles.boldPhone}>{sp(params.email) || 'your email'}</Text>.
-                  </Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#020617' }]} />
+      
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.35)', 'rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.05)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
 
-                  <View style={styles.otpContainer}>
-                    {code.map((digit, index) => (
-                      <TextInput
-                        key={index}
-                        ref={(ref) => {
-                          inputs.current[index] = ref;
-                        }}
-                        style={[styles.otpInput, digit.length > 0 && styles.otpInputActive]}
-                        keyboardType="number-pad"
-                        maxLength={1}
-                        value={digit}
-                        onChangeText={(text) => handleTextChange(text, index)}
-                        onKeyPress={(e) => handleKeyPress(e, index)}
-                        editable={!busy}
-                        autoFocus={index === 0}
-                      />
-                    ))}
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView 
+              style={{ flex: 1 }} 
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.title}>Verify Email</Text>
+              <Text style={styles.subtitle}>
+                We sent a 6-digit code to{'\n'}
+                <Text style={styles.emailText}>{email}</Text>
+              </Text>
+
+              <View style={styles.otpContainer}>
+                {code.map((digit, index) => (
+                  <View key={index} style={[styles.otpInputWrapper, digit.length > 0 && styles.otpInputActive]}>
+                    <TextInput
+                      ref={(ref) => {
+                        inputs.current[index] = ref;
+                      }}
+                      style={styles.otpInput}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      value={digit}
+                      onChangeText={(text) => handleTextChange(text, index)}
+                      onKeyPress={(e) => handleKeyPress(e, index)}
+                      editable={!busy}
+                      autoFocus={index === 0}
+                      placeholderTextColor="rgba(255,255,255,0.1)"
+                      placeholder="0"
+                    />
                   </View>
-
-                  <TouchableOpacity
-                    style={styles.resendButton}
-                    onPress={() => void handleResend()}
-                    disabled={resending || busy}
-                  >
-                    <Text style={styles.resendText}>
-                      {resending ? 'Sending…' : "I didn't receive a code"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                ))}
               </View>
 
-              <View style={styles.footer}>
-                <TouchableOpacity
-                  style={[styles.button, (!isComplete || busy) && styles.buttonDisabled]}
-                  onPress={() => void handleVerify()}
-                  disabled={!isComplete || busy}
+              <TouchableOpacity
+                style={[styles.verifyBtn, !isComplete && { opacity: 0.5 }]}
+                onPress={handleVerify}
+                disabled={!isComplete || busy}
+              >
+                <LinearGradient
+                  colors={Colors.goldGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtn}
                 >
                   {busy ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={Colors.deepBlue} />
                   ) : (
-                    <Text style={styles.buttonText}>Verify & Continue</Text>
+                    <Text style={styles.btnText}>Verify & Continue</Text>
                   )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+                </LinearGradient>
+              </TouchableOpacity>
 
-    </SafeAreaView>
-
+              <TouchableOpacity
+                style={styles.resendBtn}
+                onPress={handleResend}
+                disabled={resending || busy}
+              >
+                <Text style={styles.resendText}>
+                  {resending ? 'Sending Code...' : "Didn't receive code? Resend"}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: '#F1F5F9',
-    width: '100%',
-  },
-  progressBar: {
-    height: '100%',
-  },
-  inner: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  stepIndicator: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  content: {
-    padding: 24,
-    flex: 1,
-  },
-  title: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 32,
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: '#475569',
-    marginBottom: 40,
-    lineHeight: 24,
-  },
-  boldPhone: {
-    fontFamily: 'Outfit_600SemiBold',
-    color: '#273951',
-  },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-  },
-  otpInput: {
-    width: 48,
-    height: 56,
-    backgroundColor: '#F8FAFC',
+  container: { flex: 1, backgroundColor: '#020617' },
+  header: { paddingHorizontal: 24, paddingTop: 16 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40, paddingTop: 40, alignItems: 'center' },
+  title: { fontFamily: 'Outfit_700Bold', fontSize: 32, color: Colors.white, textAlign: 'center' },
+  subtitle: { fontFamily: 'Outfit_400Regular', fontSize: 16, color: Colors.subtext, textAlign: 'center', marginTop: 12, lineHeight: 24, marginBottom: 40 },
+  emailText: { fontFamily: 'Outfit_600SemiBold', color: Colors.gold },
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 40 },
+  otpInputWrapper: {
+    width: (width - 48 - 50) / 6,
+    height: 64,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    textAlign: 'center',
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 24,
-    color: '#0F172A',
+    borderColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   otpInputActive: {
-    borderColor: '#273951',
-    borderWidth: 2,
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
   },
-  resendButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  resendText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 14,
-    color: '#273951',
-  },
-  footer: {
-    padding: 24,
-  },
-  button: {
-    backgroundColor: '#273951',
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#273951',
-    minHeight: 56,
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#CBD5E1',
-    borderColor: '#CBD5E1',
-  },
-  buttonText: {
+  otpInput: {
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    fontSize: 28,
     fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    color: '#FFFFFF',
+    color: Colors.white,
   },
+  verifyBtn: { width: '100%', height: 56, borderRadius: 28, overflow: 'hidden', marginTop: 20 },
+  gradientBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontFamily: 'Outfit_700Bold', fontSize: 16, color: Colors.deepBlue },
+  resendBtn: { marginTop: 30, padding: 10 },
+  resendText: { fontFamily: 'Outfit_600SemiBold', fontSize: 14, color: Colors.gold, textAlign: 'center' },
 });

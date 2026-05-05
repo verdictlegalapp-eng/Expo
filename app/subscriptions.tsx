@@ -6,561 +6,326 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  StatusBar,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter, Stack } from 'expo-router';
 
-const { width } = Dimensions.get('window');
+// We'll use a strong orange brand color to match the image
+const BRAND_ORANGE = '#F97316'; 
 
-// ─── Tier Data ────────────────────────────────────────────────────────────────
+export default function Subscriptions() {
+  const router = useRouter();
+  const [activeTierId, setActiveTierId] = useState('plus');
+  const [isAnnual, setIsAnnual] = useState(false);
 
-const TIERS = [
-  {
-    id: 'platinum',
-    title: 'Verdict Platinum',
-    subtitle: 'The ultimate legal edge',
-    price: '$49.99',
-    period: '/month',
-    icon: 'diamond' as const,
-    badge: 'BEST VALUE',
-    badgeColor: '#7C3AED',
-    gradient: ['#1E1B4B', '#312E81', '#4C1D95'] as readonly [string, string, string],
-    accentColor: '#A78BFA',
-    features: [
-      'Priority placement — shown first',
-      'Message before matching',
-      'See likes you sent (last 7 days)',
-      'Stronger algorithmic visibility',
-      'Everything in Gold',
-    ],
-    buttonLabel: 'Upgrade to Platinum',
-    isCurrent: false,
-  },
-  {
-    id: 'gold',
-    title: 'Verdict Gold',
-    subtitle: 'For serious legal professionals',
-    price: '$39.99',
-    period: '/month',
-    icon: 'sparkles' as const,
-    badge: 'POPULAR',
-    badgeColor: '#B45309',
-    gradient: ['#78350F', '#92400E', '#B45309'] as readonly [string, string, string],
-    accentColor: '#FCD34D',
-    features: [
-      'See who already liked you',
-      'Daily Top Picks',
-      'Weekly Super Consultations',
-      '1 Boost per month',
-      'Everything in Plus',
-    ],
-    buttonLabel: 'Upgrade to Gold',
-    isCurrent: false,
-  },
-  {
-    id: 'plus',
-    title: 'Verdict Plus',
-    subtitle: 'Unlock your full potential',
-    price: '$24.99',
-    period: '/month',
-    icon: 'flash' as const,
-    badge: null,
-    badgeColor: '#1D4ED8',
-    gradient: ['#1D4ED8', '#2563EB', '#3B82F6'] as readonly [string, string, string],
-    accentColor: '#BFDBFE',
-    features: [
-      'Unlimited likes',
-      'Unlimited rewinds',
-      'Change Jurisdictions (Passport)',
-      'No ads',
-      'Incognito mode',
-    ],
-    buttonLabel: 'Upgrade to Plus',
-    isCurrent: false,
-  },
-  {
-    id: 'basic',
-    title: 'Verdict Basic',
-    subtitle: 'Get started for free',
-    price: 'Free',
-    period: '',
-    icon: 'person' as const,
-    badge: 'CURRENT PLAN',
-    badgeColor: '#059669',
-    gradient: ['#F8FAFC', '#F1F5F9', '#E2E8F0'] as readonly [string, string, string],
-    accentColor: '#475569',
-    features: [
-      'Standard profile creation',
-      'Limited daily swiping',
-      'Matching based on mutual likes',
-      'Messaging on mutual matches',
-    ],
-    buttonLabel: 'Current Plan',
-    isCurrent: true,
-  },
-];
+  const TIERS = [
+    {
+      id: 'free',
+      name: 'FREE PLAN',
+      price: '$0 USD',
+      period: isAnnual ? '/yr' : '/mo',
+      description: 'Limited features and functionality',
+      badge: null,
+    },
+    {
+      id: 'plus',
+      name: 'PLUS PLAN',
+      price: isAnnual ? '$89.99 USD' : '$8.99 USD',
+      period: isAnnual ? '/yr' : '/mo',
+      description: 'AI features and functionality',
+      badge: '50% OFF',
+    },
+    {
+      id: 'gold',
+      name: 'GOLD PLAN',
+      price: isAnnual ? '$399.99 USD' : '$39.99 USD',
+      period: isAnnual ? '/yr' : '/mo',
+      description: 'Efficiency for professional results.',
+      badge: 'MOST POPULAR',
+    },
+    {
+      id: 'platinum',
+      name: 'PLATINUM PLAN',
+      price: isAnnual ? '$499.99 USD' : '$49.99 USD',
+      period: isAnnual ? '/yr' : '/mo',
+      description: 'Algorithmic priority for elite access.',
+      badge: 'ELITE ACCESS',
+    },
+  ];
 
-// ─── Extra Item Data ──────────────────────────────────────────────────────────
 
-const EXTRAS = [
-  {
-    section: 'Profile Boosts',
-    sectionSubtitle: 'Be a top profile in your area for 30 minutes to get more matches.',
-    items: [
-      { name: '1 Boost', price: '$8.99', savings: null, icon: 'flash' as const, color: '#7C3AED' },
-      { name: '5 Boosts', price: '$39.99', savings: 'Save 11%', icon: 'flash' as const, color: '#7C3AED' },
-    ],
-  },
-  {
-    section: 'Super Boost',
-    sectionSubtitle: 'Extended high-traffic visibility during peak hours.',
-    items: [
-      { name: 'Super Boost', price: '$49.99', savings: null, icon: 'rocket' as const, color: '#EC4899' },
-    ],
-  },
-  {
-    section: 'Super Consultations',
-    sectionSubtitle: 'Stand out before they even swipe — signal high interest instantly.',
-    items: [
-      { name: '3 Super Consults', price: '$11.99', savings: null, icon: 'star' as const, color: '#3B82F6' },
-      { name: '15 Super Consults', price: '$49.99', savings: 'Save 20%', icon: 'star' as const, color: '#3B82F6' },
-    ],
-  },
-];
-
-// ─── Tier Card Component ──────────────────────────────────────────────────────
-
-function TierCard({ tier }: { tier: typeof TIERS[0] }) {
-  const isDark = tier.id !== 'basic';
-  const textColor = isDark ? '#FFFFFF' : '#0F172A';
-  const subTextColor = isDark ? 'rgba(255,255,255,0.65)' : '#64748B';
-  const checkColor = tier.accentColor;
+  const activeTier = TIERS.find((t) => t.id === activeTierId) || TIERS[1];
 
   return (
-    <LinearGradient
-      colors={tier.gradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.tierCard}
-    >
-      {/* Badge */}
-      {tier.badge && (
-        <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : tier.badgeColor + '22', borderColor: isDark ? 'rgba(255,255,255,0.3)' : tier.badgeColor }]}>
-          <Text style={[styles.badgeText, { color: isDark ? '#FFFFFF' : tier.badgeColor }]}>{tier.badge}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <SafeAreaView style={styles.safeArea}>
+        
+        {/* Header - simple back button */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
+          </TouchableOpacity>
         </View>
-      )}
 
-      {/* Header */}
-      <View style={styles.tierHeader}>
-        <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' }]}>
-          <Ionicons name={tier.icon} size={26} color={isDark ? tier.accentColor : tier.accentColor} />
-        </View>
-        <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={[styles.tierTitle, { color: textColor }]}>{tier.title}</Text>
-          <Text style={[styles.tierSubtitle, { color: subTextColor }]}>{tier.subtitle}</Text>
-        </View>
-      </View>
-
-      {/* Price */}
-      <View style={styles.priceRow}>
-        <Text style={[styles.tierPrice, { color: isDark ? tier.accentColor : '#0F172A' }]}>{tier.price}</Text>
-        {tier.period ? (
-          <Text style={[styles.tierPeriod, { color: subTextColor }]}>{tier.period}</Text>
-        ) : null}
-      </View>
-
-      {/* Divider */}
-      <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]} />
-
-      {/* Features */}
-      <View style={styles.featuresBlock}>
-        {tier.features.map((feature, idx) => (
-          <View key={idx} style={styles.featureRow}>
-            <Ionicons name="checkmark-circle" size={17} color={checkColor} style={{ marginRight: 10, marginTop: 2 }} />
-            <Text style={[styles.featureText, { color: subTextColor.replace('0.65', '0.85') }]}>{feature}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
+          {/* Billing Toggle */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity onPress={() => setIsAnnual(false)}>
+              <Text style={[styles.toggleText, !isAnnual && styles.toggleTextActive]}>Monthly</Text>
+            </TouchableOpacity>
+            <Switch
+              value={isAnnual}
+              onValueChange={setIsAnnual}
+              trackColor={{ false: '#333', true: BRAND_ORANGE }}
+              thumbColor="#FFF"
+              ios_backgroundColor="#333"
+              style={{ marginHorizontal: 12 }}
+            />
+            <TouchableOpacity onPress={() => setIsAnnual(true)}>
+              <Text style={[styles.toggleText, isAnnual && styles.toggleTextActive]}>Annually</Text>
+            </TouchableOpacity>
           </View>
-        ))}
-      </View>
 
-      {/* CTA Button */}
-      <TouchableOpacity
-        style={[
-          styles.tierButton,
-          tier.isCurrent
-            ? { backgroundColor: 'transparent', borderColor: isDark ? 'rgba(0,0,0,0.2)' : '#CBD5E1', borderWidth: 1.5 }
-            : { backgroundColor: isDark ? '#FFFFFF' : '#0F172A' },
-        ]}
-        disabled={tier.isCurrent}
-        activeOpacity={0.8}
-      >
-        {!tier.isCurrent && (
-          <Ionicons name="arrow-up-circle" size={18} color={isDark ? '#0F172A' : '#FFFFFF'} style={{ marginRight: 8 }} />
-        )}
-        <Text
-          style={[
-            styles.tierButtonText,
-            {
-              color: tier.isCurrent
-                ? (isDark ? 'rgba(255,255,255,0.5)' : '#94A3B8')
-                : (isDark ? '#0F172A' : '#FFFFFF'),
-            },
-          ]}
-        >
-          {tier.isCurrent ? '✓  Current Plan' : tier.buttonLabel}
-        </Text>
-      </TouchableOpacity>
-    </LinearGradient>
-  );
-}
+          {/* Stacked Cards */}
+          <View style={styles.cardsContainer}>
+            {TIERS.map((tier) => {
+              const isSelected = activeTierId === tier.id;
+              
+              return (
+                <View key={tier.id} style={{ position: 'relative', marginBottom: 20 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.card,
+                      isSelected ? styles.cardSelected : styles.cardUnselected
+                    ]}
+                    onPress={() => setActiveTierId(tier.id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardLeft}>
+                        <Text style={styles.planName}>{tier.name}</Text>
+                        <View style={styles.priceRow}>
+                          <Text style={styles.price}>{tier.price}</Text>
+                          <Text style={styles.priceMo}> /mo</Text>
+                        </View>
+                        <Text style={styles.description}>{tier.description}</Text>
+                        <Text style={styles.learnMore}>Learn More</Text>
+                      </View>
+                      
+                      <View style={styles.cardRight}>
+                        {isSelected ? (
+                          <Ionicons name="checkmark-circle" size={28} color={BRAND_ORANGE} />
+                        ) : (
+                          <Ionicons name="ellipse-outline" size={28} color="#444" />
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
 
-// ─── Extra Card Component ─────────────────────────────────────────────────────
+                  {/* Floating Badge */}
+                  {tier.badge && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{tier.badge}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
 
-function ExtraCard({ item }: { item: { name: string; price: string; savings: string | null; icon: keyof typeof Ionicons.glyphMap; color: string } }) {
-  return (
-    <View style={styles.extraCard}>
-      <View style={[styles.extraIconBg, { backgroundColor: item.color + '18' }]}>
-        <Ionicons name={item.icon} size={24} color={item.color} />
-      </View>
-      <View style={styles.extraDetails}>
-        <Text style={styles.extraName}>{item.name}</Text>
-        <View style={styles.extraPriceRow}>
-          <Text style={styles.extraPrice}>{item.price}</Text>
-          {item.savings && (
-            <View style={styles.savingsBadge}>
-              <Text style={styles.savingsText}>{item.savings}</Text>
-            </View>
-          )}
+          {/* Footer Security */}
+          <View style={styles.securitySection}>
+            <Ionicons name="lock-closed-outline" size={20} color="#888" />
+            <Text style={styles.securityText}>Transaction is secured with 256bit.</Text>
+          </View>
+
+        </ScrollView>
+
+        {/* Fixed Bottom CTA */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity style={styles.subscribeBtn}>
+            <Text style={styles.subscribeBtnText}>Subscribe to {activeTier.name.split(' ')[0].toLowerCase()} ✨</Text>
+          </TouchableOpacity>
+
+          <View style={styles.legalLinks}>
+            <TouchableOpacity>
+              <Text style={styles.legalText}>Terms & Conditions</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDot}> • </Text>
+            <TouchableOpacity>
+              <Text style={styles.legalText}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-      <TouchableOpacity style={[styles.extraButton, { backgroundColor: item.color }]} activeOpacity={0.8}>
-        <Text style={styles.extraButtonText}>Buy</Text>
-      </TouchableOpacity>
+
+      </SafeAreaView>
     </View>
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
-export default function Subscriptions() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'alacarte'>('subscriptions');
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Promote Profile</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
-      {/* Tab Bar */}
-      <View style={styles.tabContainer}>
-        {(['subscriptions', 'alacarte'] as const).map((tab) => {
-          const isActive = activeTab === tab;
-          const label = tab === 'subscriptions' ? 'Subscriptions' : 'Boosts & Extras';
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Content */}
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === 'subscriptions' && (
-          <>
-            <Text style={styles.sectionHeading}>Choose your plan</Text>
-            <Text style={styles.sectionDesc}>Unlock premium features to grow your legal practice and stand out from the crowd.</Text>
-            {TIERS.map((tier) => (
-              <TierCard key={tier.id} tier={tier} />
-            ))}
-          </>
-        )}
-
-        {activeTab === 'alacarte' && (
-          <>
-            <Text style={styles.sectionHeading}>One-Time Add-Ons</Text>
-            <Text style={styles.sectionDesc}>No subscription needed — buy only what you need, whenever you need it.</Text>
-            {EXTRAS.map((group, gi) => (
-              <View key={gi} style={styles.extraGroup}>
-                <View style={styles.extraGroupHeader}>
-                  <Text style={styles.extrasTitle}>{group.section}</Text>
-                  <Text style={styles.extrasSubtitle}>{group.sectionSubtitle}</Text>
-                </View>
-                {group.items.map((item, ii) => (
-                  <ExtraCard key={ii} item={item} />
-                ))}
-              </View>
-            ))}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#050505', // Very dark, almost black
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
+  backBtn: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  headerTitle: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    color: '#0F172A',
-    letterSpacing: -0.3,
+  scrollContent: {
+    paddingBottom: 40,
   },
-  tabContainer: {
+  toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
     alignItems: 'center',
-    borderBottomWidth: 2.5,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    marginBottom: 40,
+    marginTop: 10,
   },
-  tabActive: {
-    borderBottomColor: '#273951',
+  toggleText: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 16,
+    color: '#888',
   },
-  tabText: {
+  toggleTextActive: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: 14,
-    color: '#94A3B8',
+    color: '#FFF',
   },
-  tabTextActive: {
-    color: '#273951',
+  cardsContainer: {
+    paddingHorizontal: 24,
   },
-  content: {
+  card: {
+    borderRadius: 24,
+    padding: 24,
+  },
+  cardUnselected: {
+    backgroundColor: '#1C1C1E', // Dark grey
+    borderWidth: 1,
+    borderColor: '#1C1C1E',
+  },
+  cardSelected: {
+    backgroundColor: 'rgba(249, 115, 22, 0.08)', // Tinted orange
+    borderWidth: 1,
+    borderColor: BRAND_ORANGE,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardLeft: {
     flex: 1,
   },
-  sectionHeading: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 22,
-    color: '#0F172A',
-    marginBottom: 6,
-    letterSpacing: -0.4,
-  },
-  sectionDesc: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 22,
-    lineHeight: 20,
-  },
-
-  // ── Tier Card ──
-  tierCard: {
-    borderRadius: 22,
-    padding: 22,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginBottom: 14,
-  },
-  badgeText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 10,
-    letterSpacing: 0.8,
-  },
-  tierHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  cardRight: {
+    marginLeft: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tierTitle: {
+  planName: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    letterSpacing: -0.2,
-  },
-  tierSubtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 12,
+    color: '#FFF',
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: 16,
+    alignItems: 'baseline',
+    marginBottom: 12,
   },
-  tierPrice: {
+  price: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: 34,
-    letterSpacing: -1,
+    fontSize: 28,
+    color: '#FFF',
   },
-  tierPeriod: {
+  priceMo: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 16,
+    color: '#888',
+  },
+  description: {
     fontFamily: 'Outfit_400Regular',
     fontSize: 14,
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  divider: {
-    height: 1,
+    color: '#AAA',
     marginBottom: 16,
   },
-  featuresBlock: {
-    marginBottom: 22,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  featureText: {
-    fontFamily: 'Outfit_400Regular',
+  learnMore: {
+    fontFamily: 'Outfit_600SemiBold',
     fontSize: 14,
-    flex: 1,
-    lineHeight: 21,
+    color: BRAND_ORANGE,
   },
-  tierButton: {
+  badge: {
+    position: 'absolute',
+    top: -12,
+    right: 32,
+    backgroundColor: BRAND_ORANGE,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    color: '#FFF',
+  },
+  securitySection: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderRadius: 50,
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 20,
   },
-  tierButtonText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 15,
+  securityText: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 14,
+    color: '#888',
+    marginLeft: 8,
   },
-
-  // ── Extras ──
-  extraGroup: {
-    marginBottom: 26,
+  bottomSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 30,
+    paddingTop: 10,
+    backgroundColor: '#050505',
   },
-  extraGroupHeader: {
-    marginBottom: 14,
+  subscribeBtn: {
+    backgroundColor: BRAND_ORANGE,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  extrasTitle: {
+  subscribeBtnText: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 18,
-    color: '#0F172A',
-    marginBottom: 4,
-    letterSpacing: -0.2,
+    color: '#FFF',
   },
-  extrasSubtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 19,
-  },
-  extraCard: {
+  legalLinks: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  extraIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
   },
-  extraDetails: {
-    flex: 1,
-  },
-  extraName: {
+  legalText: {
     fontFamily: 'Outfit_600SemiBold',
-    fontSize: 15,
-    color: '#0F172A',
-    marginBottom: 4,
+    fontSize: 13,
+    color: BRAND_ORANGE,
   },
-  extraPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  extraPrice: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 15,
-    color: '#273951',
-  },
-  savingsBadge: {
-    backgroundColor: '#D1FAE5',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  savingsText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 11,
-    color: '#059669',
-  },
-  extraButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 50,
-  },
-  extraButtonText: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 14,
-    color: '#FFFFFF',
+  legalDot: {
+    color: '#444',
+    marginHorizontal: 8,
   },
 });

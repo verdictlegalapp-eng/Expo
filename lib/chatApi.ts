@@ -99,6 +99,10 @@ export async function ensureChatSocket(): Promise<Socket> {
     const s = io(base, {
       auth: { token },
       reconnection: true,
+      transports: ['polling', 'websocket'],
+      forceNew: true,
+      path: '/socket.io/',
+      timeout: 20000,
     });
     const onConnect = () => {
       s.off('connect_error', onErr);
@@ -106,13 +110,14 @@ export async function ensureChatSocket(): Promise<Socket> {
       socketConnectPromise = null;
       resolve(s);
     };
-    const onErr = (err: Error) => {
+    const onErr = (err: any) => {
       s.off('connect', onConnect);
       socketConnectPromise = null;
+      // Silent fail to prevent metro log spam
       reject(err);
     };
     s.once('connect', onConnect);
-    s.once('connect_error', onErr);
+    s.on('connect_error', onErr);
   });
 
   return socketConnectPromise;
@@ -127,9 +132,6 @@ export async function fetchMessages(receiverId: string): Promise<{ messages: any
     headers: { Authorization: `Bearer ${token}` },
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  // #region agent log
-  if (__DEV__) console.warn('[debug-890d74] fetchMessages status', res.status);
-  // #endregion
   throwIfApiFailed(res, body);
 
   const data = body.data ?? body;
@@ -163,9 +165,6 @@ export async function fetchMessages(receiverId: string): Promise<{ messages: any
     rawList[0]?.conversationId ??
     null;
   const convId = convIdRaw != null ? String(convIdRaw) : '';
-  // #region agent log
-  if (__DEV__) console.warn('[debug-890d74] fetchMessages parsed', { count: messages.length, hasConvId: !!convId });
-  // #endregion
   return { messages, conversationId: convId };
 }
 
@@ -232,10 +231,33 @@ export async function sendMessage(receiverId: string, text: string): Promise<any
     body: JSON.stringify({ receiverId, text }),
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  // #region agent log
-  if (__DEV__) console.warn('[debug-890d74] sendMessage status', res.status);
-  // #endregion
   throwIfApiFailed(res, body);
 
   return body.data ?? body;
+}
+
+export async function deleteMessage(messageId: string): Promise<void> {
+  const base = getBaseUrl();
+  const token = await getSessionToken();
+  if (!base || !token) throw new Error('Not signed in');
+
+  const res = await fetch(`${base}/api/chat/message/${encodeURIComponent(messageId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  throwIfApiFailed(res, body);
+}
+
+export async function clearConversation(receiverId: string): Promise<void> {
+  const base = getBaseUrl();
+  const token = await getSessionToken();
+  if (!base || !token) throw new Error('Not signed in');
+
+  const res = await fetch(`${base}/api/chat/conversation/${encodeURIComponent(receiverId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  throwIfApiFailed(res, body);
 }

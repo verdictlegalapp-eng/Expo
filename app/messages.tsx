@@ -1,35 +1,56 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Image, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Platform,
+  StatusBar,
+  ActivityIndicator,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { fetchConversations } from '../lib/chatApi';
 import { fetchCurrentUser } from '../lib/authApi';
 import { Colors } from '../constants/Colors';
 
 export default function Messages() {
   const router = useRouter();
-  const [chats, setChats] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [chats, setChats] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  React.useEffect(() => {
-    loadConversations();
+  useEffect(() => {
+    loadData();
   }, []);
 
   useFocusEffect(
-    React.useCallback(() => {
-      loadConversations();
+    useCallback(() => {
+      loadData(false);
+      const interval = setInterval(() => loadData(true), 5000);
+      return () => clearInterval(interval);
     }, []),
   );
 
-  const loadConversations = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
-      const data = await fetchConversations();
+      
       const me = await fetchCurrentUser().catch(() => null);
+      setCurrentUser(me);
+
+      const data = await fetchConversations();
       const meId = me?.id != null ? String(me.id) : null;
       const normalized = Array.isArray(data) ? data : [];
       const dedup = new Map<string, any>();
@@ -41,283 +62,212 @@ export default function Messages() {
       }
       setChats(Array.from(dedup.values()));
     } catch (e: any) {
-      setError(e.message || 'Failed to load conversations');
-      console.error('Failed to load conversations:', e);
+      if (!silent) setError(e.message || 'Failed to load conversations');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <TouchableOpacity onPress={loadConversations} style={styles.refreshButton}>
-            <Ionicons name="reload" size={20} color="#0F172A" />
-          </TouchableOpacity>
-        </View>
-      </View>
+  const getInitials = (name: string) => {
+    if (!name) return '??';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
-      {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.loadingText}>Loading your conversations...</Text>
+  const filteredChats = chats.filter(chat => 
+    (chat.name || chat.lawyerName || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderMatch = (item: any, index: number) => (
+    <Animated.View key={item.id} entering={FadeInRight.delay(index * 100).springify()}>
+      <TouchableOpacity 
+        style={styles.matchItem}
+        onPress={() => router.push(`/chat/${item.id}`)}
+      >
+        <View style={styles.matchAvatarContainer}>
+          {item.image && item.image.startsWith('http') ? (
+            <Image source={{ uri: item.image }} style={styles.matchAvatar} />
+          ) : (
+            <View style={[styles.matchAvatar, styles.initialsAvatar, { width: 64, height: 64, borderRadius: 32 }]}>
+              <Text style={[styles.initialsText, { fontSize: 20 }]}>{getInitials(item.name || item.lawyerName || '')}</Text>
+            </View>
+          )}
+          <View style={styles.onlineDot} />
         </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={60} color={Colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadConversations}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+        <Text style={styles.matchName} numberOfLines={1}>
+          {(item.name || item.lawyerName || '').split(' ')[0]}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Background - Reverted to Gold/Blue brand */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#020617' }]} />
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.1)', 'transparent']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)}>
+            {currentUser?.image ? (
+              <Image source={{ uri: currentUser.image }} style={styles.headerAvatar} />
+            ) : (
+              <View style={[styles.headerAvatar, styles.initialsAvatar]}>
+                <Text style={styles.initialsText}>{getInitials(currentUser?.name || currentUser?.fullName || '')}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chats</Text>
+          <TouchableOpacity style={styles.moreBtn} onPress={loadData}>
+            <Ionicons name="refresh" size={22} color={Colors.gold} />
           </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          data={chats}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={styles.chatRow}
-              onPress={() => router.push({
-                pathname: `/chat/${item.id}`,
-                params: { name: item.name || item.lawyerName }
-              } as any)}
-              disabled={!item?.id}
-            >
-              <View style={styles.avatarContainer}>
-                <Image 
-                  source={{ uri: item.image || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150' }} 
-                  style={styles.avatar} 
-                />
-                {item.unread && <View style={styles.onlineBadge} />}
-              </View>
-              
-              <View style={styles.chatContent}>
-                <View style={styles.chatHeader}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.partnerName} numberOfLines={1}>{item.name || item.lawyerName}</Text>
-                    {item.role && (
-                      <View style={[styles.roleBadge, item.role === 'lawyer' ? styles.lawyerBadge : styles.clientBadge]}>
-                        <Text style={styles.roleText}>{item.role === 'lawyer' ? 'Attorney' : 'Client'}</Text>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color="rgba(255,255,255,0.4)" />
+            <TextInput
+              placeholder="Search Matches"
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* New Matches Section */}
+          <View style={styles.sectionHeader}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.matchesScroll}>
+              {chats.slice(0, 8).map(renderMatch)}
+            </ScrollView>
+          </View>
+
+          <Text style={styles.chatsTitle}>Recent Chats</Text>
+
+          {loading ? (
+            <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} />
+          ) : (
+            <View style={styles.chatList}>
+              {filteredChats.length > 0 ? (
+                filteredChats.map((item, index) => (
+                  <Animated.View key={item.id} entering={FadeInUp.delay(index * 100).springify()}>
+                    <TouchableOpacity 
+                      style={styles.chatCard}
+                      onPress={() => router.push(`/chat/${item.id}`)}
+                    >
+                      <View style={styles.cardAvatarContainer}>
+                        {item.image && item.image.startsWith('http') ? (
+                          <Image source={{ uri: item.image }} style={styles.cardAvatar} />
+                        ) : (
+                          <View style={[styles.cardAvatar, styles.initialsAvatar]}>
+                            <Text style={styles.initialsText}>{getInitials(item.name || item.lawyerName || '')}</Text>
+                          </View>
+                        )}
+                        <View style={styles.cardOnlineDot} />
                       </View>
-                    )}
-                  </View>
-                  <Text style={styles.time}>{item.time}</Text>
+  
+                      <View style={styles.cardInfo}>
+                        <View style={styles.cardHeader}>
+                          <Text style={styles.cardName}>{item.name || item.lawyerName}</Text>
+                          <Text style={styles.cardTime}>{item.time || 'now'}</Text>
+                        </View>
+                        <View style={styles.cardFooter}>
+                          <Text style={styles.cardMessage} numberOfLines={1}>
+                            {item.lastMessage || 'Tap to start a conversation'}
+                          </Text>
+                          {item.unread && (
+                            <View style={styles.unreadBadge}>
+                              <Text style={styles.unreadCount}>1</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </Animated.View>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="chatbubbles-outline" size={60} color="rgba(255,255,255,0.05)" />
+                  <Text style={styles.emptyStateText}>No messages yet</Text>
                 </View>
-                <View style={styles.messageRow}>
-                  <Text style={[styles.lastMessage, item.unread && styles.lastMessageUnread]} numberOfLines={1}>
-                    {item.lastMessage || 'Start a conversation'}
-                  </Text>
-                  {item.unread && (
-                    <View style={styles.unreadCount}>
-                      <Text style={styles.unreadText}>1</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="chatbubbles-outline" size={80} color="#E2E8F0" />
-              <Text style={styles.emptyStateTitle}>No messages yet</Text>
-              <Text style={styles.emptyStateSub}>Your conversations with legal experts will appear here.</Text>
+              )}
             </View>
-          }
-        />
-      )}
-    </SafeAreaView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#020617' },
+  safeArea: { flex: 1 },
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
-    paddingBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingVertical: 10,
   },
-  headerContent: {
+  headerAvatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: Colors.gold },
+  initialsAvatar: { backgroundColor: 'rgba(212, 175, 55, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  initialsText: { color: Colors.gold, fontFamily: 'Outfit_700Bold', fontSize: 16 },
+  headerTitle: { fontFamily: 'Outfit_700Bold', fontSize: 24, color: Colors.white },
+  moreBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  searchContainer: { paddingHorizontal: 20, marginTop: 10 },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_700Bold',
-    fontSize: 24,
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  refreshButton: {
-    padding: 5,
-  },
-  list: {
-    paddingBottom: 20,
-  },
-  chatRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F1F5F9',
-  },
-  onlineBadge: {
-    position: 'absolute',
-    right: 2,
-    bottom: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#10B981',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  chatContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  partnerName: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_700Bold',
-    fontSize: 17,
-    color: '#0F172A',
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 4,
-  },
-  lawyerBadge: {
-    backgroundColor: '#E0F2FE',
-  },
-  clientBadge: {
-    backgroundColor: '#F1F5F9',
-  },
-  roleText: {
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_600SemiBold',
-    color: '#0369A1',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  time: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_400Regular',
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lastMessage: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_400Regular',
-    fontSize: 14,
-    color: '#64748B',
-    flex: 1,
-    marginRight: 10,
-  },
-  lastMessageUnread: {
-    color: '#0F172A',
-    fontWeight: '600',
-  },
-  unreadCount: {
-    backgroundColor: '#2395DB',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  unreadText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 20,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#64748B',
-    fontSize: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#0F172A',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#1D2433',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 25,
+    paddingHorizontal: 16,
+    height: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  emptyState: {
-    marginTop: 100,
+  searchInput: { flex: 1, marginLeft: 10, color: Colors.white, fontFamily: 'Outfit_400Regular', fontSize: 16 },
+  scrollContent: { paddingBottom: 100 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 20 },
+  matchesScroll: { flex: 1 },
+  matchItem: { alignItems: 'center', marginRight: 18, width: 64 },
+  matchAvatarContainer: { position: 'relative' },
+  matchAvatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)' },
+  onlineDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#020617' },
+  matchName: { fontFamily: 'Outfit_500Medium', fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 8 },
+  chatsTitle: { fontFamily: 'Outfit_700Bold', fontSize: 20, color: Colors.white, marginLeft: 20, marginTop: 30, marginBottom: 15 },
+  chatList: { paddingHorizontal: 20 },
+  chatCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 20,
-  },
-  emptyStateSub: {
-    fontSize: 15,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 22,
-  },
+  cardAvatarContainer: { position: 'relative' },
+  cardAvatar: { width: 60, height: 60, borderRadius: 30 },
+  cardOnlineDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#020617' },
+  cardInfo: { flex: 1, marginLeft: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  cardName: { fontFamily: 'Outfit_700Bold', fontSize: 17, color: Colors.white },
+  cardTime: { fontFamily: 'Outfit_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.3)' },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardMessage: { fontFamily: 'Outfit_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.4)', flex: 1, marginRight: 10 },
+  unreadBadge: { backgroundColor: Colors.gold, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  unreadCount: { color: Colors.deepBlue, fontSize: 11, fontFamily: 'Outfit_700Bold' },
+  emptyState: { alignItems: 'center', marginTop: 40 },
+  emptyStateText: { fontFamily: 'Outfit_400Regular', fontSize: 15, color: 'rgba(255,255,255,0.2)', marginTop: 10 },
 });

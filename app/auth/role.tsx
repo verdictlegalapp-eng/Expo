@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Colors } from '../../constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 export default function RoleSelection() {
   const router = useRouter();
@@ -11,12 +14,19 @@ export default function RoleSelection() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={Colors.brandGradient}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={{ flex: 1 }}>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}>
-          <Ionicons name="arrow-back" size={28} color="#0F172A" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
       </View>
+
       
       <View style={styles.content}>
         <Text style={styles.title}>Welcome to Verdict</Text>
@@ -54,20 +64,23 @@ export default function RoleSelection() {
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
+
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#020617',
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
   },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', borderWhite: 1, borderColor: 'rgba(255,255,255,0.1)' },
   content: {
     padding: 24,
     flex: 1,
@@ -76,50 +89,51 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 32,
-    color: '#0F172A',
+    color: Colors.white,
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'Outfit_400Regular',
     fontSize: 16,
-    color: '#475569',
+    color: Colors.subtext,
     marginBottom: 48,
   },
   cardsContainer: {
     gap: 16,
   },
   roleCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 24,
+    padding: 24,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
     borderWidth: 1,
-    borderColor: '#273951',
+    borderColor: Colors.gold,
   },
   cardTextContainer: {
     flex: 1,
   },
   cardTitle: {
     fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    color: '#0F172A',
+    fontSize: 20,
+    color: Colors.white,
     marginBottom: 4,
   },
   cardSubtitle: {
     fontFamily: 'Outfit_400Regular',
     fontSize: 14,
-    color: '#475569',
+    color: Colors.subtext,
   },
 });
+

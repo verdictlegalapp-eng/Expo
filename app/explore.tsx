@@ -8,14 +8,18 @@ import {
   FlatList, 
   TouchableOpacity, 
   Image,
-  Dimensions
+  Dimensions,
+  StatusBar,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { fetchLawyers } from '../lib/lawyerApi';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing, FadeInRight, FadeInUp } from 'react-native-reanimated';
 
 import { PRACTICE_AREAS } from '../constants/Legal';
+import { Colors } from '../constants/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -27,15 +31,26 @@ export default function Explore() {
   const [lawyers, setLawyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const translateX = useSharedValue(-width);
+
   React.useEffect(() => {
     loadLawyers();
+    translateX.value = withRepeat(
+      withTiming(width, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      false
+    );
   }, []);
+
+  const animatedBorderStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }]
+    };
+  });
 
   const loadLawyers = async () => {
     try {
       setLoading(true);
-      
-      // Get current user location
       let userCity = '';
       let userState = '';
       try {
@@ -75,27 +90,48 @@ export default function Explore() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
       <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Background Glow */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#020617' }]} />
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.2)', 'rgba(212, 175, 55, 0.05)', 'transparent']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
       <SafeAreaView style={styles.safeArea}>
         
         {/* Header with Search */}
         <View style={styles.header}>
           <Text style={styles.title}>Explore Attorneys</Text>
           <View style={styles.searchWrapper}>
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#94A3B8" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by name or practice..."
-                placeholderTextColor="#94A3B8"
-                value={searchQuery}
-                onChangeText={(text) => {
-                  setSearchQuery(text);
-                  setIsSearching(true);
-                }}
-                onFocus={() => setIsSearching(true)}
-                onBlur={() => setTimeout(() => setIsSearching(false), 200)} // Delay to allow click
-              />
+            <View style={styles.animatedBorderWrapper}>
+              <Animated.View style={[styles.gradientBorder, animatedBorderStyle]}>
+                <LinearGradient
+                  colors={['transparent', '#FFDF00', '#D4AF37', 'transparent']}
+                  style={StyleSheet.absoluteFill}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                />
+              </Animated.View>
+              <View style={styles.searchContainerInner}>
+                <Ionicons name="search" size={20} color="rgba(255,255,255,0.4)" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by name or practice..."
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  value={searchQuery}
+                  onChangeText={(text) => {
+                    setSearchQuery(text);
+                    setIsSearching(true);
+                  }}
+                  onFocus={() => setIsSearching(true)}
+                  onBlur={() => setTimeout(() => setIsSearching(false), 200)}
+                />
+              </View>
             </View>
 
             {/* Glass Autocomplete Suggestions */}
@@ -107,7 +143,7 @@ export default function Explore() {
                     style={styles.suggestionItem}
                     onPress={() => handleSelectSuggestion(item.name)}
                   >
-                    <MaterialCommunityIcons name={item.icon as any} size={20} color="#3B82F6" />
+                    <MaterialCommunityIcons name={item.icon as any} size={20} color={Colors.gold} />
                     <Text style={styles.suggestionText}>{item.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -116,7 +152,7 @@ export default function Explore() {
           </View>
         </View>
 
-        {/* Suggestion / Categories List */}
+        {/* Categories List */}
         <View style={styles.categoriesSection}>
           <Text style={styles.sectionTitle}>Practice Areas</Text>
           <FlatList
@@ -125,26 +161,28 @@ export default function Explore() {
             data={PRACTICE_AREAS}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.categoriesList}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={[
-                  styles.categoryCard,
-                  activeCategory === item.name && styles.categoryCardActive
-                ]}
-                onPress={() => setActiveCategory(activeCategory === item.name ? null : item.name)}
-              >
-                 <MaterialCommunityIcons 
-                    name={item.icon as any} 
-                    size={24} 
-                    color={activeCategory === item.name ? '#FFFFFF' : '#3B82F6'} 
-                />
-                <Text style={[
-                  styles.categoryText,
-                  activeCategory === item.name && styles.categoryTextActive
-                ]}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
+            renderItem={({ item, index }) => (
+              <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
+                <TouchableOpacity 
+                  style={[
+                    styles.categoryCard,
+                    activeCategory === item.name && styles.categoryCardActive
+                  ]}
+                  onPress={() => setActiveCategory(activeCategory === item.name ? null : item.name)}
+                >
+                   <MaterialCommunityIcons 
+                      name={item.icon as any} 
+                      size={24} 
+                      color={activeCategory === item.name ? Colors.deepBlue : Colors.gold} 
+                  />
+                  <Text style={[
+                    styles.categoryText,
+                    activeCategory === item.name && styles.categoryTextActive
+                  ]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
             )}
           />
         </View>
@@ -157,7 +195,8 @@ export default function Explore() {
           </View>
           {loading ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>Loading attorneys...</Text>
+              <ActivityIndicator color={Colors.gold} size="large" />
+              <Text style={styles.emptyStateText}>Loading Attorneys...</Text>
             </View>
           ) : (
             <FlatList
@@ -165,33 +204,35 @@ export default function Explore() {
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.resultsList}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.lawyerCard}
-                  onPress={() => router.push(`/lawyer/${item.id}`)}
-                >
-                  <Image source={{ uri: item.image }} style={styles.lawyerImage} />
-                  <View style={styles.lawyerInfo}>
-                    <Text style={styles.lawyerName}>{item.name}</Text>
-                    <Text style={styles.lawyerPractice}>{item.practice}</Text>
-                    <View style={styles.lawyerMeta}>
-                      <View style={styles.metaRow}>
-                        <Ionicons name="location" size={14} color="#94A3B8" />
-                        <Text style={styles.metaText}>{item.location}</Text>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <Ionicons name="ribbon" size={14} color="#3B82F6" />
-                        <Text style={styles.metaTextHighlight}>{item.experience}</Text>
+              renderItem={({ item, index }) => (
+                <Animated.View entering={FadeInUp.delay(index * 100).springify()}>
+                  <TouchableOpacity 
+                    style={styles.lawyerCard}
+                    onPress={() => router.push(`/lawyer/${item.id}`)}
+                  >
+                    <Image source={{ uri: item.image }} style={styles.lawyerImage} />
+                    <View style={styles.lawyerInfo}>
+                      <Text style={styles.lawyerName}>{item.name}</Text>
+                      <Text style={styles.lawyerPractice}>{item.practice}</Text>
+                      <View style={styles.lawyerMeta}>
+                        <View style={styles.metaRow}>
+                          <Ionicons name="location" size={12} color="rgba(255,255,255,0.4)" />
+                          <Text style={styles.metaText}>{item.location}</Text>
+                        </View>
+                        <View style={styles.metaRow}>
+                          <Ionicons name="ribbon" size={12} color={Colors.gold} />
+                          <Text style={styles.metaTextHighlight}>{item.experience}</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                </TouchableOpacity>
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+                  </TouchableOpacity>
+                </Animated.View>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyState}>
-                  <Ionicons name="search-outline" size={48} color="#CBD5E1" />
-                  <Text style={styles.emptyStateText}>No attorneys match your search.</Text>
+                  <Ionicons name="search-outline" size={64} color="rgba(255,255,255,0.1)" />
+                  <Text style={styles.emptyStateText}>No attorneys found.</Text>
                 </View>
               }
             />
@@ -203,215 +244,95 @@ export default function Explore() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: '#020617' },
+  safeArea: { flex: 1 },
+  header: { paddingHorizontal: 24, paddingVertical: 16, gap: 16, zIndex: 100 },
+  searchWrapper: { zIndex: 100 },
+  title: { fontFamily: 'Outfit_700Bold', fontSize: 28, color: Colors.white },
+  animatedBorderWrapper: {
+    height: 56,
+    borderRadius: 16,
+    overflow: 'hidden',
+    padding: 1.5,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    justifyContent: 'center',
+  },
+  gradientBorder: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 200,
+  },
+  searchContainerInner: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    gap: 16,
-    zIndex: 100, // Ensure header is above horizontal list
-  },
-  searchWrapper: {
-    zIndex: 100,
-  },
-  title: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 28,
-    color: '#0F172A',
-  },
-  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 15,
     paddingHorizontal: 16,
-    height: 56,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
+  searchInput: { flex: 1, marginLeft: 12, fontFamily: 'Outfit_400Regular', fontSize: 16, color: Colors.white },
   suggestionsDropdown: {
     position: 'absolute',
-    top: 60,
+    top: 64,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    backgroundColor: '#0F172A',
     borderRadius: 16,
     padding: 8,
     gap: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 15,
     elevation: 8,
     zIndex: 1000,
   },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    gap: 12,
-  },
-  suggestionText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 15,
-    color: '#1E293B',
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: '#1E293B',
-  },
-  categoriesSection: {
-    marginTop: 10,
-  },
-  sectionTitle: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 18,
-    color: '#1E293B',
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  categoriesList: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, gap: 12 },
+  suggestionText: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: Colors.white },
+  categoriesSection: { marginTop: 10 },
+  sectionTitle: { fontFamily: 'Outfit_700Bold', fontSize: 18, color: Colors.white, paddingHorizontal: 24, marginBottom: 12 },
+  categoriesList: { paddingHorizontal: 20, gap: 12 },
   categoryCard: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     gap: 6,
     minWidth: 100,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
   },
   categoryCardActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+    backgroundColor: Colors.gold,
+    borderColor: Colors.gold,
   },
-  categoryText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 13,
-    color: '#64748B',
-  },
-  categoryTextActive: {
-    color: '#FFFFFF',
-  },
-  resultsSection: {
-    flex: 1,
-    marginTop: 24,
-  },
-  resultsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingRight: 20,
-  },
-  resultsCount: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 13,
-    color: '#94A3B8',
-  },
-  resultsList: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 100,
-    gap: 16,
-  },
+  categoryText: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.4)' },
+  categoryTextActive: { color: Colors.deepBlue },
+  resultsSection: { flex: 1, marginTop: 24 },
+  resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 12 },
+  resultsCount: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.4)' },
+  resultsList: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 100, gap: 16 },
   lawyerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOpacity: 0.02,
-    shadowRadius: 10,
-    elevation: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  lawyerImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-  },
-  lawyerInfo: {
-    flex: 1,
-    marginLeft: 16,
-    gap: 2,
-  },
-  lawyerName: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 16,
-    color: '#0F172A',
-  },
-  lawyerPractice: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 13,
-    color: '#64748B',
-  },
-  lawyerMeta: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  metaTextHighlight: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 11,
-    color: '#3B82F6',
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 60,
-    gap: 12,
-  },
-  emptyStateText: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 15,
-    color: '#94A3B8',
-  },
-  backFab: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-    zIndex: 10,
-  },
+  lawyerImage: { width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)' },
+  lawyerInfo: { flex: 1, marginLeft: 16, gap: 2 },
+  lawyerName: { fontFamily: 'Outfit_700Bold', fontSize: 16, color: Colors.white },
+  lawyerPractice: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.gold },
+  lawyerMeta: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontFamily: 'Outfit_600SemiBold', fontSize: 11, color: 'rgba(255,255,255,0.4)' },
+  metaTextHighlight: { fontFamily: 'Outfit_700Bold', fontSize: 11, color: Colors.gold },
+  emptyState: { alignItems: 'center', marginTop: 60, gap: 12 },
+  emptyStateText: { fontFamily: 'Outfit_600SemiBold', fontSize: 16, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
 });

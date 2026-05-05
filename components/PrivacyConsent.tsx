@@ -24,7 +24,7 @@ export default function PrivacyConsent({ visible, onAgree, onDecline }: PrivacyC
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Ionicons name="shield-checkmark" size={32} color={Colors.electricBlue} />
+              <Ionicons name="shield-checkmark" size={32} color={Colors.gold} />
             </View>
             <Text style={styles.title}>Privacy Policy</Text>
           </View>
@@ -41,7 +41,7 @@ export default function PrivacyConsent({ visible, onAgree, onDecline }: PrivacyC
 
             <TouchableOpacity onPress={openPrivacyLink} style={styles.linkButton}>
               <Text style={styles.linkText}>Read Full Privacy Policy on Web</Text>
-              <Ionicons name="open-outline" size={16} color={Colors.electricBlue} />
+              <Ionicons name="open-outline" size={16} color={Colors.gold} />
             </TouchableOpacity>
 
             <Text style={styles.note}>
@@ -84,7 +84,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+    borderColor: Colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -92,7 +94,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 24,
-    color: Colors.navy,
+    color: Colors.deepBlue,
   },
   content: {
     marginBottom: 24,
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   bulletTitle: {
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 16,
-    color: Colors.navy,
+    color: Colors.deepBlue,
     marginBottom: 8,
   },
   bullet: {
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
   linkText: {
     fontFamily: 'Outfit_600SemiBold',
     fontSize: 14,
-    color: Colors.electricBlue,
+    color: Colors.deepBlue,
   },
   note: {
     fontFamily: 'Inter_400Regular',
@@ -149,6 +151,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   agreeText: {
     fontFamily: 'Outfit_700Bold',

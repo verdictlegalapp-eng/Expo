@@ -1,544 +1,386 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TouchableOpacity, 
-  TextInput, 
-  FlatList, 
-  Image, 
-  KeyboardAvoidingView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
   Platform,
-  Keyboard,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fetchMessages, sendMessage as sendChatMsg, ensureChatSocket } from '../../lib/chatApi';
-import { fetchCurrentUser } from '../../lib/authApi';
+import { 
+  ensureChatSocket, 
+  fetchMessages, 
+  sendMessage as sendApiMessage, 
+  fetchConversations,
+  deleteMessage,
+  clearConversation
+} from '../../lib/chatApi';
+import { fetchCurrentUser, fetchUserById } from '../../lib/authApi';
 import { Colors } from '../../constants/Colors';
 
-/** Expo Router can pass `string | string[]` for dynamic segments. */
-function oneSearchParam(p: string | string[] | undefined): string {
-  if (p == null) return '';
-  return Array.isArray(p) ? (p[0] ?? '') : String(p);
-}
-
 export default function ChatScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const peerUserId = oneSearchParam(params.id as string | string[] | undefined);
-  const partnerName = oneSearchParam(params.name as string | string[] | undefined);
-  const flatListRef = useRef<FlatList>(null);
-  
+  const { id, name: initialName, image: initialImage } = useLocalSearchParams<{ id: string; name?: string; image?: string }>();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [socketAvailable, setSocketAvailable] = useState(true);
+  const [partner, setPartner] = useState({ name: initialName || '', image: initialImage || '' });
+  const [loading, setLoading] = useState(true);
+  const flatListRef = useRef<FlatList>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    loadChat();
-  }, [peerUserId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let attached: Awaited<ReturnType<typeof ensureChatSocket>> | undefined;
-
-    const handler = (msg: any) => {
-      const incomingSender = msg.sender ?? msg.senderId;
-      setMessages((prev) => {
-        if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
-        const optimistic = prev.find(
-          (m) =>
-            m.isOptimistic &&
-            m.text === msg.text &&
-            String(m.sender) === String(incomingSender),
-        );
-        if (optimistic) {
-          return prev.map((m) =>
-            m.id === optimistic.id
-              ? {
-                  ...msg,
-                  id: msg.id ?? m.id,
-                  sender: incomingSender,
-                  time: msg.time || m.time,
-                  createdAt: msg.createdAt ? new Date(msg.createdAt) : m.createdAt,
-                  isOptimistic: false,
-                }
-              : m,
-          );
-        }
-        return [
-          ...prev,
-          {
-            ...msg,
-            sender: incomingSender,
-            createdAt: msg.createdAt ? new Date(msg.createdAt) : undefined,
-          },
-        ];
-      });
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    };
-
-    ensureChatSocket()
-      .then((socket) => {
-        if (cancelled) return;
-        attached = socket;
-        setSocketAvailable(true);
-        // #region agent log
-        if (__DEV__) console.warn('[debug-890d74] socket attached', { peerUserId });
-        // #endregion
-        socket.on('receive_message', handler);
-      })
-      .catch((e) => {
-        setSocketAvailable(false);
-        console.warn('Chat socket:', e);
-      });
-
-    return () => {
-      cancelled = true;
-      attached?.off('receive_message', handler);
-    };
-  }, [peerUserId]);
-
-  useEffect(() => {
-    if (!conversationId) return;
-    let cancelled = false;
-    (async () => {
+    initChat();
+    
+    const refreshInterval = setInterval(async () => {
       try {
-        const socket = await ensureChatSocket();
-        if (cancelled) return;
-        socket.emit('join_room', conversationId);
-        // #region agent log
-        if (__DEV__) console.warn('[debug-890d74] join_room emitted', { conversationId });
-        // #endregion
-      } catch (e) {
-        console.warn('join_room:', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [conversationId]);
-
-  useEffect(() => {
-    if (!peerUserId) return;
-    const id = setInterval(async () => {
-      try {
-        const synced = await fetchMessages(peerUserId);
-        setMessages((prev) => {
-          const prevLast = prev[prev.length - 1]?.id;
-          const nextLast = synced.messages[synced.messages.length - 1]?.id;
-          if (synced.messages.length !== prev.length) return synced.messages;
-          if (String(prevLast ?? '') !== String(nextLast ?? '')) return synced.messages;
+        const { messages: updatedMsgs } = await fetchMessages(id);
+        setMessages(prev => {
+          // Only update if the last message ID has changed
+          const lastPrev = prev[prev.length - 1]?.id;
+          const lastUpdated = updatedMsgs[updatedMsgs.length - 1]?.id;
+          
+          // Also update if we have an optimistic 'pending' message that needs to be replaced by the server version
+          const hasPending = prev.some(m => m.pending);
+          
+          if (lastPrev !== lastUpdated || hasPending) {
+            return updatedMsgs;
+          }
           return prev;
         });
-        if (synced.conversationId) setConversationId(synced.conversationId);
-      } catch {
-        // Silent: background refresh should not interrupt typing.
-      }
-    }, 3500);
-    return () => clearInterval(id);
-  }, [peerUserId]);
+      } catch (e) {}
+    }, 4000); // Slightly slower to ensure smoothness
 
-  const loadChat = async () => {
+    return () => clearInterval(refreshInterval);
+  }, [id]);
+
+  const initChat = async () => {
     try {
+      setLoading(true);
       const user = await fetchCurrentUser();
       setCurrentUser(user);
-      if (!peerUserId) {
-        Alert.alert(
-          'Cannot open chat',
-          'No contact was selected. Go back and open the conversation again from Messages or the attorney profile.',
-        );
-        return;
+
+      const { messages: initialMsgs } = await fetchMessages(id);
+      setMessages(initialMsgs);
+
+      if (!partner.name || partner.name === 'User') {
+        try {
+          const userData = await fetchUserById(id);
+          if (userData) {
+            setPartner({
+              name: userData.name || 'User',
+              image: userData.image || ''
+            });
+          }
+        } catch (e) {
+          const conversations = await fetchConversations();
+          const thisConv = conversations.find(c => String(c.id) === String(id));
+          if (thisConv) {
+            setPartner({
+              name: thisConv.name || thisConv.lawyerName || 'User',
+              image: thisConv.image || thisConv.lawyerImage || ''
+            });
+          }
+        }
       }
-      const { messages: msgs, conversationId: convId } = await fetchMessages(peerUserId);
-      setMessages(msgs);
-      setConversationId(convId || null);
-      // #region agent log
-      if (__DEV__) console.warn('[debug-890d74] loadChat result', { peerUserId, count: msgs.length, convId: convId || null });
-      // #endregion
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 200);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load messages';
-      Alert.alert('Chat', msg);
-      console.log('Chat load error:', e);
+
+      const socket = await ensureChatSocket();
+      socket.emit('join_room', id);
+      socket.on('receive_message', (msg: any) => {
+        setMessages((prev) => [...prev, msg]);
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+      });
+    } catch (err) {
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() || !peerUserId) return;
-    if (String(peerUserId) === String(currentUser?.id)) {
-      Alert.alert('Chat', 'Cannot send a message to your own account.');
-      return;
-    }
-    const text = inputText;
-    const tempId = Date.now().toString();
+    if (!inputText.trim()) return;
+    const text = inputText.trim();
+    setInputText('');
+
+    // Optimistic Update: Add message to UI immediately
+    const optimisticMsg = {
+      id: 'pending-' + Date.now(),
+      text,
+      senderId: currentUser?.id,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      pending: true,
+      status: 'sent'
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setTimeout(() => flatListRef.current?.scrollToEnd(), 50);
+
     try {
-      setInputText('');
-
-      const newMsg = {
-        id: tempId,
+      await sendApiMessage(id, text);
+      const socket = await ensureChatSocket();
+      socket.emit('send_message', {
+        conversationId: id,
+        senderId: currentUser?.id,
         text,
-        sender: currentUser?.id,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        createdAt: new Date(),
-        isOptimistic: true
-      };
-      setMessages(prev => [...prev, newMsg]);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-
-      const result = await sendChatMsg(peerUserId, text);
-      const serverId = result?.id ?? result?._id ?? result?.message?.id ?? result?.messageId;
-      const cid =
-        result?.conversationId ??
-        result?.conversation?.id ??
-        result?.chatId;
-      // #region agent log
-      if (__DEV__) console.warn('[debug-890d74] handleSend response', { hasServerId: !!serverId, cid: cid ?? null });
-      // #endregion
-      if (cid != null && String(cid).length > 0) {
-        setConversationId(String(cid));
-      }
-      if (serverId != null) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === tempId
-              ? { ...m, id: String(serverId), isOptimistic: false }
-              : m,
-          ),
-        );
-      } else {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, isOptimistic: false } : m)),
-        );
-      }
-
-      // Live API may not provide socket delivery/conversationId; re-sync via REST.
-      const synced = await fetchMessages(peerUserId);
-      setMessages(synced.messages);
-      if (synced.conversationId) {
-        setConversationId(synced.conversationId);
-      }
-    } catch (e) {
-      setInputText(text);
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      const msg = e instanceof Error ? e.message : 'Failed to send message';
-      Alert.alert('Send failed', msg);
+      });
+    } catch (err) {
     }
   };
 
-  const renderMessage = ({ item, index }: { item: any, index: number }) => {
-    const isMe = String(item.sender) === String(currentUser?.id);
-    const showDate = index === 0 || isNewDay(messages[index - 1].createdAt || messages[index-1].time, item.createdAt || item.time);
+  const handleDeleteMessage = (msgId: string) => {
+    Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Delete', 
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMessage(msgId);
+            setMessages(prev => prev.filter(m => m.id !== msgId));
+          } catch (e) {
+            Alert.alert('Error', 'Could not delete message');
+          }
+        }
+      }
+    ]);
+  };
+
+  const handleClearChat = () => {
+    Alert.alert('Clear Chat', 'Delete all messages in this conversation?', [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Clear All', 
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await clearConversation(id);
+            setMessages([]);
+          } catch (e) {
+            Alert.alert('Error', 'Could not clear chat');
+          }
+        }
+      }
+    ]);
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return '??';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const renderMessage = ({ item }: { item: any }) => {
+    const isMe = String(item.senderId || item.sender) === String(currentUser?.id);
 
     return (
-      <View>
-        {showDate && (
-          <View style={styles.dateHeader}>
-            <Text style={styles.dateText}>{formatDateHeader(item.createdAt || new Date())}</Text>
+      <TouchableOpacity 
+        onLongPress={() => isMe && handleDeleteMessage(item.id)}
+        activeOpacity={0.8}
+        style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.partnerMessageWrapper]}
+      >
+        {!isMe && (
+          <View>
+            {partner.image && partner.image.startsWith('http') ? (
+              <Image source={{ uri: partner.image }} style={styles.bubbleAvatar} />
+            ) : (
+              <View style={[styles.bubbleAvatar, styles.initialsAvatar, { backgroundColor: 'rgba(212, 175, 55, 0.1)' }]}>
+                <Text style={[styles.initialsText, { fontSize: 12 }]}>{getInitials(partner.name)}</Text>
+              </View>
+            )}
           </View>
         )}
-        <View style={[styles.msgRow, isMe ? styles.msgRight : styles.msgLeft]}>
-          {isMe ? (
-            <LinearGradient
-              colors={['#2395DB', '#518CA6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.bubble, styles.bubbleMe]}
-            >
-              <Text style={styles.msgTextMe}>{item.text}</Text>
-              <View style={styles.messageFooter}>
-                <Text style={styles.timeTextMe}>{item.time}</Text>
-                <Ionicons 
-                  name="checkmark-done" 
+        <View style={styles.bubbleContainer}>
+          <LinearGradient
+            colors={isMe ? Colors.goldGradient : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.bubble, isMe ? styles.myBubble : styles.partnerBubble]}
+          >
+            <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.partnerMessageText]}>
+              {item.text}
+            </Text>
+            {isMe && (
+              <View style={styles.statusContainer}>
+                <Text style={styles.myTimestamp}>{item.time}</Text>
+                <MaterialCommunityIcons 
+                  name={item.pending ? "clock-outline" : "check-all"} 
                   size={14} 
-                  color={item.isOptimistic ? "rgba(255,255,255,0.5)" : "#FFF"} 
-                  style={{ marginLeft: 4 }} 
+                  color={item.pending ? "rgba(2, 6, 23, 0.4)" : Colors.deepBlue} 
+                  style={styles.tick}
                 />
               </View>
-            </LinearGradient>
-          ) : (
-            <View style={[styles.bubble, styles.bubbleThem]}>
-              {!isMe && index > 0 && String(messages[index - 1].sender) === String(item.sender) ? null : (
-                 <Text style={styles.senderName}>Partner</Text>
-              )}
-              <Text style={styles.msgTextThem}>{item.text}</Text>
-              <View style={styles.messageFooter}>
-                <Text style={styles.timeTextThem}>{item.time}</Text>
-              </View>
-            </View>
-          )}
+            )}
+          </LinearGradient>
+          {!isMe && <Text style={styles.partnerTimestamp}>{item.time}</Text>}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
-  const isNewDay = (prevDate: any, currDate: any) => {
-    const d1 = new Date(prevDate);
-    const d2 = new Date(currDate);
-    return d1.toDateString() !== d2.toDateString();
-  };
-
-  const formatDateHeader = (date: any) => {
-    const d = new Date(date);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-
-    if (d.toDateString() === today.toDateString()) return 'Today';
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Background */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#020617' }]} />
+      <LinearGradient
+        colors={['rgba(212, 175, 55, 0.05)', 'transparent']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-            <Ionicons name="chevron-back" size={28} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color={Colors.white} />
           </TouchableOpacity>
-          <View style={styles.headerUser}>
-            <Image 
-              source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerName || 'U')}&background=0D8ABC&color=fff` }} 
-              style={styles.avatar} 
-            />
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {partnerName || 'Legal Counsel'}
-              </Text>
-              <View style={styles.onlineStatus}>
-                <View style={styles.statusDot} />
-                <Text style={styles.headerStatus}>Active Now</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerBtn}>
-              <Ionicons name="call-outline" size={22} color="#0F172A" />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.headerBtn, { marginLeft: 15 }]}>
-              <Ionicons name="videocam-outline" size={24} color="#0F172A" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item, index) => item.id || index.toString()}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.list}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          showsVerticalScrollIndicator={false}
-        />
-
-        <View style={styles.inputWrapper}>
-          <View style={styles.inputBar}>
-            <TouchableOpacity style={styles.attachBtn}>
-              <Ionicons name="add" size={28} color={Colors.mutedBlue} />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder="Message..."
-              placeholderTextColor="#94A3B8"
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-            />
-            {inputText.trim() ? (
-              <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
-                <LinearGradient colors={['#2395DB', '#1D2433']} style={styles.sendIconCircle}>
-                  <Ionicons name="arrow-up" size={20} color="#FFF" />
-                </LinearGradient>
-              </TouchableOpacity>
+          
+          <View style={styles.headerCenter}>
+            {partner.image && partner.image.startsWith('http') ? (
+              <Image source={{ uri: partner.image }} style={styles.headerAvatar} />
             ) : (
-              <TouchableOpacity style={styles.actionBtn}>
-                <Ionicons name="mic-outline" size={24} color={Colors.mutedBlue} />
-              </TouchableOpacity>
+              <View style={[styles.headerAvatar, styles.initialsAvatar]}>
+                <Text style={styles.initialsText}>{getInitials(partner.name)}</Text>
+              </View>
             )}
+            <Text style={styles.headerName} numberOfLines={1}>{partner.name || 'User'}</Text>
+          </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerBtn} onPress={handleClearChat}>
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator color={Colors.gold} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item, index) => item.id || String(index)}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messageList}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+          />
+        )}
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+          <View style={styles.inputWrapper}>
+            <TouchableOpacity style={styles.inputActionBtn}>
+              <Ionicons name="add" size={24} color={Colors.gold} />
+            </TouchableOpacity>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Message"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+              />
+              <TouchableOpacity style={styles.emojiBtn}>
+                <MaterialCommunityIcons name="emoticon-outline" size={24} color="rgba(255,255,255,0.3)" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.sendBtn, inputText.trim() ? styles.goldSendBtn : {}]} 
+              onPress={inputText.trim() ? handleSend : () => {}}
+            >
+              {inputText.trim() ? (
+                <LinearGradient colors={Colors.goldGradient} style={styles.sendGradient}>
+                  <Ionicons name="send" size={20} color={Colors.deepBlue} />
+                </LinearGradient>
+              ) : (
+                <View style={[styles.sendGradient, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                  <Ionicons name="send" size={20} color="rgba(255,255,255,0.2)" />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { 
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
-    paddingBottom: 15,
-    paddingHorizontal: 15,
+  container: { flex: 1, backgroundColor: '#020617' },
+  safeArea: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerBtn: {
-    padding: 5,
-  },
-  headerUser: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  headerInfo: {
-    marginLeft: 12,
-  },
-  headerTitle: {
-    color: '#0F172A',
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Outfit_700Bold',
-  },
-  onlineStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-    marginRight: 6,
-  },
-  headerStatus: {
-    color: '#10B981',
-    fontSize: 12,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  list: { 
-    paddingHorizontal: 20, 
-    paddingTop: 20, 
-    paddingBottom: 100 
-  },
-  dateHeader: { 
-    alignItems: 'center', 
-    marginVertical: 20 
-  },
-  dateText: { 
-    fontSize: 12, 
-    color: '#94A3B8', 
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
-  msgRow: { 
-    flexDirection: 'row', 
-    marginBottom: 10, 
-    width: '100%' 
-  },
-  msgLeft: { justifyContent: 'flex-start' },
-  msgRight: { justifyContent: 'flex-end' },
-  bubble: { 
-    maxWidth: '85%', 
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  bubbleMe: { 
-    borderBottomRightRadius: 4,
-  },
-  bubbleThem: { 
-    backgroundColor: '#FFF', 
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  senderName: {
-    fontSize: 10,
-    color: '#518CA6',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  msgTextMe: { fontSize: 16, color: '#FFF', lineHeight: 22 },
-  msgTextThem: { fontSize: 16, color: '#1D2433', lineHeight: 22 },
-  messageFooter: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'flex-end', 
-    marginTop: 4 
-  },
-  timeTextMe: { fontSize: 10, color: 'rgba(255,255,255,0.7)' },
-  timeTextThem: { fontSize: 10, color: '#94A3B8' },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', marginHorizontal: 12 },
+  headerAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
+  initialsAvatar: { backgroundColor: 'rgba(212, 175, 55, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.gold },
+  initialsText: { color: Colors.gold, fontFamily: 'Outfit_700Bold', fontSize: 14 },
+  headerName: { fontFamily: 'Outfit_700Bold', fontSize: 18, color: Colors.white },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  messageList: { paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 40 },
+  messageWrapper: { flexDirection: 'row', marginBottom: 15, maxWidth: '85%' },
+  myMessageWrapper: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
+  partnerMessageWrapper: { alignSelf: 'flex-start' },
+  bubbleAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8, alignSelf: 'flex-end' },
+  bubbleContainer: { maxWidth: '100%' },
+  bubble: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  myBubble: { borderBottomRightRadius: 4 },
+  partnerBubble: { borderBottomLeftRadius: 4 },
+  messageText: { fontFamily: 'Outfit_400Regular', fontSize: 15, lineHeight: 22 },
+  myMessageText: { color: Colors.deepBlue, fontWeight: '500' },
+  partnerMessageText: { color: 'rgba(255,255,255,0.9)' },
+  statusContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 2 },
+  myTimestamp: { fontFamily: 'Outfit_400Regular', fontSize: 10, color: 'rgba(2, 6, 23, 0.4)' },
+  tick: { marginLeft: 4 },
+  partnerTimestamp: { fontFamily: 'Outfit_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4, textAlign: 'left' },
   inputWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 15,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
-    backgroundColor: 'transparent',
-  },
-  inputBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 30,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    maxHeight: 100,
     paddingHorizontal: 12,
-    color: '#1D2433',
+    paddingVertical: 12,
+    gap: 10,
   },
-  attachBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  inputActionBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    minHeight: 48,
+    maxHeight: 100,
   },
-  actionBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendBtn: {
-    marginLeft: 5,
-  },
-  sendIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
+  input: { flex: 1, color: Colors.white, fontFamily: 'Outfit_400Regular', fontSize: 15, paddingVertical: 8 },
+  emojiBtn: { marginLeft: 8 },
+  sendBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
+  goldSendBtn: { overflow: 'hidden' },
+  sendGradient: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

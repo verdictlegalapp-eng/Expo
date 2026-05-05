@@ -19,14 +19,7 @@ import { updateProfile } from '../../lib/authApi';
 
 const { width } = Dimensions.get('window');
 
-const AVATAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
-  'person',
-  'happy',
-  'briefcase',
-  'medal',
-  'school',
-  'shield-checkmark',
-];
+import { Colors } from '../../constants/Colors';
 
 export default function ProfilePic() {
   const router = useRouter();
@@ -55,8 +48,8 @@ export default function ProfilePic() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
+      aspect: isAttorney ? [4, 5] : [1, 1],
+      quality: 0.8,
       base64: true,
     });
 
@@ -69,12 +62,15 @@ export default function ProfilePic() {
   };
 
   const handleFinish = async () => {
+    if (isAttorney && !base64Image) {
+      Alert.alert('Photo Required', 'Attorneys must upload a professional profile picture to be discovered by clients.');
+      return;
+    }
+    
     try {
       setIsSaving(true);
       if (base64Image) {
         await updateProfile({ image: `data:image/jpeg;base64,${base64Image}` });
-      } else if (selectedAvatar) {
-        await updateProfile({ image: selectedAvatar });
       }
       
       if (isAttorney) {
@@ -96,7 +92,7 @@ export default function ProfilePic() {
       {/* ProgressBar indicating Step 3 of 3 (100%) */}
       <View style={styles.progressBarContainer}>
         <LinearGradient
-          colors={['#3B82F6', '#273951']}
+          colors={Colors.goldGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.progressBar, { width: '100%' }]}
@@ -121,92 +117,41 @@ export default function ProfilePic() {
               : "Select a premium icon avatar or upload your own photo."}
           </Text>
 
-          {isAttorney ? (
+          {isUploaded && imageUri ? (
             <View style={styles.uploadSection}>
-              <TouchableOpacity 
-                style={styles.mainUploadCircle} 
-                onPress={pickImage}
-              >
-                {isUploaded && imageUri ? (
-                  <Image 
-                    source={{ uri: imageUri }} 
-                    style={styles.profileImage} 
-                  />
-                ) : (
-                  <View style={styles.placeholderIcon}>
-                    <Ionicons name="camera" size={40} color="#94A3B8" />
-                    <Text style={styles.uploadLabel}>Upload Photo</Text>
-                  </View>
-                )}
-                <View style={styles.editBadge}>
-                  <Ionicons name={isUploaded ? "checkmark" : "add"} size={20} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.hintText}>High resolution headshots perform 4x better.</Text>
+              <View style={[styles.mainUploadCircle, isAttorney && styles.attorneyCardPreview]}>
+                <Image source={{ uri: imageUri }} style={[styles.profileImage, isAttorney && styles.attorneyImagePreview]} />
+                <TouchableOpacity style={styles.editBadge} onPress={pickImage}>
+                  <Ionicons name="pencil" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
-            <View style={styles.clientSection}>
-              <View style={styles.avatarGrid}>
-                {AVATAR_ICONS.map((iconName, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={[
-                      styles.avatarWrapper,
-                      selectedAvatar === iconName && styles.selectedAvatar
-                    ]}
-                    onPress={() => {
-                      setSelectedAvatar(iconName);
-                      setIsUploaded(false);
-                    }}
-                  >
-                    <View style={[
-                      styles.iconBackground,
-                      selectedAvatar === iconName && styles.selectedIconBackground
-                    ]}>
-                      <Ionicons 
-                        name={iconName} 
-                        size={44} 
-                        color={selectedAvatar === iconName ? "#3B82F6" : "#CBD5E1"} 
-                      />
-                    </View>
-                    {selectedAvatar === iconName && (
-                      <View style={styles.checkOverlay}>
-                        <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <View style={styles.actionContainer}>
+              <TouchableOpacity style={styles.primaryButton} onPress={pickImage}>
+                <Text style={styles.primaryButtonText}>Add a Picture</Text>
+              </TouchableOpacity>
+              {!isAttorney && (
+                <TouchableOpacity style={styles.secondaryButton} onPress={handleFinish}>
+                  <Text style={styles.secondaryButtonText}>Skip</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-              <View style={styles.divider}>
-                <View style={styles.line} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.line} />
-              </View>
-
+          {isUploaded && (
+            <View style={styles.footer}>
               <TouchableOpacity 
-                style={[styles.customUploadButton, isUploaded && styles.uploadedButton]} 
-                onPress={pickImage}
+                style={[styles.button, isSaving && { opacity: 0.7 }]} 
+                onPress={handleFinish}
+                disabled={isSaving}
               >
-                <Ionicons name="image-outline" size={24} color={isUploaded ? "#3B82F6" : "#64748B"} />
-                <Text style={[styles.uploadButtonText, isUploaded && styles.uploadedText]}>
-                  {isUploaded ? "Photo Selected" : "Upload your own photo"}
-                </Text>
+                <Text style={styles.buttonText}>{isSaving ? "Saving..." : "Finish & Enter Verdict"}</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={[styles.button, (!selectedAvatar && !isUploaded) && styles.buttonDisabled, isSaving && { opacity: 0.7 }]} 
-          onPress={handleFinish}
-          disabled={(!selectedAvatar && !isUploaded) || isSaving}
-        >
-          <Text style={styles.buttonText}>{isSaving ? "Saving..." : "Finish & Enter Verdict"}</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -243,53 +188,60 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
   },
-  title: {
-    fontFamily: 'Outfit_700Bold',
-    fontSize: 28,
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 16,
-    color: '#475569',
-    marginBottom: 40,
-  },
-  uploadSection: {
+  title: { fontFamily: 'Outfit_700Bold', fontSize: 32, color: Colors.deepBlue, marginBottom: 8 },
+  subtitle: { fontFamily: 'Outfit_400Regular', fontSize: 16, color: '#64748B', marginBottom: 40 },
+  actionContainer: { gap: 16, marginTop: 20 },
+  primaryButton: {
+    backgroundColor: Colors.navy,
+    paddingVertical: 18,
+    borderRadius: 30,
     alignItems: 'center',
-    marginTop: 20,
   },
+  primaryButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+  },
+  secondaryButtonText: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 18,
+    color: Colors.deepBlue,
+  },
+  uploadSection: { alignItems: 'center', marginTop: 20 },
   mainUploadCircle: {
     width: 160,
     height: 160,
     borderRadius: 80,
     backgroundColor: '#F8FAFC',
     borderWidth: 2,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
+    borderColor: Colors.gold,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  profileImage: {
-    width: 156,
-    height: 156,
-    borderRadius: 78,
+  profileImage: { width: 156, height: 156, borderRadius: 78 },
+  attorneyCardPreview: {
+    width: 200,
+    height: 250,
+    borderRadius: 24,
   },
-  placeholderIcon: {
-    alignItems: 'center',
-  },
-  uploadLabel: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 14,
-    color: '#94A3B8',
-    marginTop: 8,
+  attorneyImagePreview: {
+    width: 196,
+    height: 246,
+    borderRadius: 22,
   },
   editBadge: {
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: '#3B82F6',
+    backgroundColor: Colors.navy,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -298,106 +250,16 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  hintText: {
-    fontFamily: 'Outfit_400Regular',
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 24,
-    textAlign: 'center',
-  },
-  clientSection: {
-    gap: 32,
-  },
-  avatarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  avatarWrapper: {
-    width: (width - 48 - 32) / 3,
-    aspectRatio: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  iconBackground: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-  },
-  selectedIconBackground: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#3B82F6',
-  },
-  selectedAvatar: {
-    // Wrapper styles for selected state if needed
-  },
-  checkOverlay: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E2E8F0',
-  },
-  dividerText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  customUploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    gap: 12,
-  },
-  uploadedButton: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-  },
-  uploadButtonText: {
-    fontFamily: 'Outfit_600SemiBold',
-    fontSize: 16,
-    color: '#64748B',
-  },
-  uploadedText: {
-    color: '#3B82F6',
-  },
-  footer: {
-    padding: 24,
-  },
+  footer: { paddingVertical: 24, paddingHorizontal: 0, marginTop: 'auto' },
   button: {
-    backgroundColor: '#273951',
+    backgroundColor: Colors.gold,
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: '#CBD5E1',
-  },
   buttonText: {
     fontFamily: 'Outfit_700Bold',
     fontSize: 18,
-    color: '#FFFFFF',
+    color: Colors.deepBlue,
   },
 });
